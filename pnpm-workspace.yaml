@@ -7,3 +7,8 @@ allowBuilds:
 minimumReleaseAgeExclude:
   - "@bachman-dev/oxc-config@0.1.0 || 0.1.1 || 0.1.2 || 0.2.0"
   - "@cloudflare/workers-types@5.20260924.1"
+# openapi-typescript relies on the TypeScript 5 compiler API, which TypeScript 7 no longer ships. Resolving peers from
+# each package's own dependencies (rather than the workspace root's TypeScript 7) lets pnpm auto-install a TypeScript 5
+# peer just for it. This is declarative on purpose: Renovate runs pnpm with --ignore-pnpmfile, so a pnpmfile hook here
+# would make its lockfile updates drop pnpmfileChecksum and fail frozen installs.
+resolvePeersFromWorkspaceRoot: false
