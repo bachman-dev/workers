@@ -1,0 +1,44 @@
+{
+  "compilerOptions": {
+    // Type Checking
+    "allowUnreachableCode": false,
+    "allowUnusedLabels": false,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noUncheckedIndexedAccess": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "strict": true,
+    "useUnknownInCatchVariables": true,
+
+    // Modules
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "rewriteRelativeImportExtensions": true,
+
+    // Emit
+    "declaration": true,
+    "declarationMap": true,
+    "inlineSources": false,
+
+    // Interop Constraints
+    "erasableSyntaxOnly": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+
+    // Language & Environment
+    "lib": ["es2025"],
+    "target": "es2025",
+
+    // Output Formatting=
+    "preserveWatchOutput": true,
+
+    // Completeness
+    "skipLibCheck": true
+  },
+  "include": ["src/**/*.ts", "scripts/**/*.ts", "tests/**/*.ts", "oxfmt.config.ts", "oxlint.config.ts"],
+  "exclude": ["node_modules"]
+}

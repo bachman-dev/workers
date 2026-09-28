@@ -1,0 +1,45 @@
+{
+  "name": "@bachman-dev/workers-shared",
+  "private": true,
+  "files": [
+    "dist/**/*.{mjs,d.mts}"
+  ],
+  "type": "module",
+  "exports": {
+    "./cloudflare": {
+      "import": {
+        "types": "./dist/cloudflare/index.d.mts",
+        "default": "./dist/cloudflare/index.mjs"
+      }
+    },
+    "./discord": {
+      "import": {
+        "types": "./dist/discord/index.d.mts",
+        "default": "./dist/discord/index.mjs"
+      }
+    },
+    "./http": {
+      "import": {
+        "types": "./dist/http/index.d.mts",
+        "default": "./dist/http/index.mjs"
+      }
+    },
+    "./util": {
+      "import": {
+        "types": "./dist/util/index.d.mts",
+        "default": "./dist/util/index.mjs"
+      }
+    }
+  },
+  "scripts": {
+    "build": "tsdown --config ./tsdown.config.ts"
+  },
+  "dependencies": {
+    "@discordjs/rest": "2.6.3",
+    "discord-api-types": "0.38.55"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20260927.1",
+    "tsdown": "0.23.0"
+  }
+}

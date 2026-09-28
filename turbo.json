@@ -1,0 +1,21 @@
+{
+  "$schema": "./node_modules/turbo/schema.json",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build", "check"],
+      "cache": true,
+      "outputs": ["dist/**"]
+    },
+    "check": {
+      "dependsOn": ["^build", "types"]
+    },
+    "db:generate": {
+      "cache": false
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "types": { "dependsOn": ["^types"], "outputs": ["./worker-configuration.d.ts"] }
+  }
+}

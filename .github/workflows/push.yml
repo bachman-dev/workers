@@ -1,0 +1,24 @@
+name: Push Jobs
+on:
+  push:
+    branches:
+      - main
+  repository_dispatch:
+jobs:
+  test:
+    name: Test Pushed
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Setup pnpm
+        uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # v3.0.0
+        with:
+          cache: true
+          require-lockfile: true
+      - name: Build Package
+        run: pnpm build
+      - name: Check Formatting
+        run: pnpm format:check
+      - name: Lint Code
+        run: pnpm lint:ci

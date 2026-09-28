@@ -1,0 +1,26 @@
+{
+  "name": "workers",
+  "private": true,
+  "license": "MIT",
+  "author": "",
+  "type": "module",
+  "scripts": {
+    "build": "turbo run build",
+    "check": "turbo run check",
+    "format": "oxfmt --write --config oxfmt.config.ts .",
+    "format:check": "oxfmt --check --config oxfmt.config.ts .",
+    "lint": "turbo run build && oxlint --config oxlint.config.ts .",
+    "lint:ci": "oxlint --config oxlint.config.ts .",
+    "lint:fix": "turbo run build && oxlint --config oxlint.config.ts --fix ."
+  },
+  "devDependencies": {
+    "@bachman-dev/oxc-config": "0.2.0",
+    "oxfmt": "0.70.0",
+    "oxlint": "1.85.0",
+    "oxlint-tsgolint": "7.0.2003",
+    "turbo": "2.11.4",
+    "typescript": "7.0.2",
+    "wrangler": "4.142.0"
+  },
+  "packageManager": "pnpm@12.5.1+sha512.e3f305bc784a2bc89f5ad3b6138889470fae8d2af5f36b61216ec91c2c3d64089775f9de38aac331044ea40f245cb0d5666392dfdf65824e1907ef6a2c62de5f"
+}

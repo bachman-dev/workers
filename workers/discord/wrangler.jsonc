@@ -1,0 +1,34 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "discord",
+  "compatibility_date": "2026-09-28",
+  "main": "./src/index.ts",
+  "workers_dev": false,
+  "preview_urls": false,
+  "observability": {
+    "enabled": true,
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "discord",
+      "migrations_dir": "drizzle/migrations",
+    },
+  ],
+  "queues": {
+    "consumers": [
+      {
+        "queue": "discord-message-queue",
+        "max_batch_size": 10,
+        "max_batch_timeout": 60,
+        "dead_letter_queue": "dead-letters",
+      },
+    ],
+    "producers": [
+      {
+        "binding": "DEAD_LETTER_QUEUE",
+        "queue": "dead-letters",
+      },
+    ],
+  },
+}

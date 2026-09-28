@@ -1,0 +1,42 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "webhooks",
+  "compatibility_date": "2026-09-24",
+  "main": "./src/index.ts",
+  "workers_dev": false,
+  "preview_urls": false,
+  "observability": {
+    "enabled": true,
+  },
+  "r2_buckets": [
+    {
+      "binding": "GITHUB_BUCKET",
+      "bucket_name": "github-webhook-deliveries",
+      "preview_bucket_name": "github-webhook-deliveries-preview",
+    },
+  ],
+  "queues": {
+    "consumers": [
+      {
+        "queue": "github-webhook-queue",
+        "max_batch_size": 10,
+        "max_batch_timeout": 60,
+        "dead_letter_queue": "dead-letters",
+      },
+    ],
+    "producers": [
+      {
+        "binding": "DISCORD_QUEUE",
+        "queue": "discord-message-queue",
+      },
+      {
+        "binding": "GITHUB_QUEUE",
+        "queue": "github-webhook-queue",
+      },
+      {
+        "binding": "DEAD_LETTER_QUEUE",
+        "queue": "dead-letters",
+      },
+    ],
+  },
+}

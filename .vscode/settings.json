@@ -1,0 +1,9 @@
+{
+  "workbench.editor.customLabels.patterns": {
+    "**/.gitignore": "Root - .gitignore",
+    "**/**.*": "Root - ${filename}.${extname}",
+    "**/packages/workers-shared/**/**.*": "Shared - ${filename}.${extname}",
+    "**/workers/workers-bachman-dev/**/**.*": "Root Worker - ${filename}.${extname}",
+    "**/workers/webhooks/**/**.*": "Webhooks - ${filename}.${extname}"
+  }
+}

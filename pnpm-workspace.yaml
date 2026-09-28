@@ -1,0 +1,9 @@
+packages:
+  - packages/*
+  - workers/*
+allowBuilds:
+  esbuild: true
+  workerd: true
+minimumReleaseAgeExclude:
+  - "@bachman-dev/oxc-config@0.1.0 || 0.1.1 || 0.1.2 || 0.2.0"
+  - "@cloudflare/workers-types@5.20260924.1"
