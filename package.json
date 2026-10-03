@@ -14,7 +14,7 @@
     "lint:fix": "turbo run build && oxlint --config oxlint.config.ts --fix ."
   },
   "devDependencies": {
-    "@bachman-dev/oxc-config": "0.2.0",
+    "@bachman-dev/oxc-config": "0.3.0",
     "oxfmt": "0.71.0",
     "oxlint": "1.86.0",
     "oxlint-tsgolint": "7.0.2003",
