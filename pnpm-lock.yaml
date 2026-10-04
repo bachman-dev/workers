@@ -223,8 +223,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/workers-shared
       hono:
-        specifier: 4.13.10
-        version: 4.13.10
+        specifier: 4.13.12
+        version: 4.13.12
     devDependencies:
       '@types/node':
         specifier: 24.19.0
@@ -1779,8 +1779,8 @@ packages:
     resolution: {integrity: sha512-X6fBC0pmImC70gvX2zm56go9hx0MyoGVdG0tUCkg/D+Xnh5TJsOZ7iDbOdI3PvmtrDxnu1YdDufpK2QJX1Meqw==}
     engines: {node: '>=20.20.0'}
 
-  hono@4.13.10:
-    resolution: {integrity: sha512-dQuLsa5oO+47QVMVMaaD9cIv8ctmVtK1iRvwWngkfloFJMeFeuoUFDswIqZGxmGX3hrRzREgEArjkK9OgsQEhA==}
+  hono@4.13.12:
+    resolution: {integrity: sha512-6E2QDAc9Ick9Sq77ZrGS/dk2WUYni91aufTw6LJKpV7w8kW5/GxVUc650FOADOmlwg3K+f7Pun6XlV+pYmW6gw==}
     engines: {node: '>=16.9.0'}
 
   hookable@6.1.2:
@@ -2969,7 +2969,7 @@ snapshots:
     dependencies:
       resolve-pkg-maps: 1.0.0
 
-  hono@4.13.10: {}
+  hono@4.13.12: {}
 
   hookable@6.1.2: {}
 
