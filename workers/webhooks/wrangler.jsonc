@@ -42,4 +42,36 @@
       },
     ],
   },
+  "previews": {
+    "r2_buckets": [
+      {
+        "binding": "GITHUB_BUCKET",
+        "bucket_name": "github-webhook-deliveries-preview",
+      },
+    ],
+    "queues": {
+      "consumers": [
+        {
+          "queue": "preview-github-webhook-queue",
+          "max_batch_size": 10,
+          "max_batch_timeout": 60,
+          "dead_letter_queue": "preview-dead-letters",
+        },
+      ],
+      "producers": [
+        {
+          "binding": "DISCORD_QUEUE",
+          "queue": "preview-discord-message-queue",
+        },
+        {
+          "binding": "GITHUB_QUEUE",
+          "queue": "preview-github-webhook-queue",
+        },
+        {
+          "binding": "DEAD_LETTER_QUEUE",
+          "queue": "preview-dead-letters",
+        },
+      ],
+    },
+  },
 }

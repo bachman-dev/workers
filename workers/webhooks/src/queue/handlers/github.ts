@@ -13,7 +13,6 @@ import { type GithubWebhookEvent, GithubWebhookEventName } from "../../types/git
 const handleGithubWebhooks: MappedQueueMessageBatchHandler<"github-webhook-queue", QueueBodyMap, Env> = async (
   messages,
   env,
-  _executionContext,
 ) => {
   const components: APIMessageTopLevelComponent[] = [];
   const promises = await Promise.allSettled(
@@ -84,7 +83,7 @@ const handleGithubWebhooks: MappedQueueMessageBatchHandler<"github-webhook-queue
         return {
           body: {
             format: "webhook",
-            webhookId: "",
+            webhookId: env.GITHUB_WEBHOOK_ID,
             body,
           },
         };

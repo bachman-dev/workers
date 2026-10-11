@@ -11,28 +11,29 @@ export default {
     const webhookTokenMap = new Map<string, string>();
     const drizzle = getDrizzle(env.DB);
 
-    for (const { body } of batch.messages) {
-      switch (body.format) {
+    for (const message of batch.messages) {
+      switch (message.body.format) {
         case "message": {
-          let rest = restMap.get(body.applicationId);
+          let rest = restMap.get(message.body.applicationId);
           if (typeof rest === "undefined") {
             // oxlint-disable-next-line no-await-in-loop -- Must be in order
             const app = await drizzle.query.apps.findFirst({
               where: {
                 id: {
-                  eq: body.applicationId,
+                  eq: message.body.applicationId,
                 },
               },
             });
             if (typeof app === "undefined") {
-              throw new TypeError(`Unexpected application ID ${body.applicationId}`);
+              throw new TypeError(`Unexpected application ID ${message.body.applicationId}`);
             }
             rest = new REST({ version: APIVersion });
             rest.setToken(app.token);
-            restMap.set(body.applicationId, rest);
+            restMap.set(message.body.applicationId, rest);
           }
           // oxlint-disable-next-line no-await-in-loop -- Must be in order
-          await sendMessage(rest, body);
+          await sendMessage(rest, message.body);
+          message.ack();
           break;
         }
         case "webhook": {
@@ -41,24 +42,25 @@ export default {
             rest = new REST({ version: APIVersion });
             restMap.set("webhook", rest);
           }
-          let webhookToken = webhookTokenMap.get(body.webhookId);
+          let webhookToken = webhookTokenMap.get(message.body.webhookId);
           if (typeof webhookToken === "undefined") {
             // oxlint-disable-next-line no-await-in-loop -- Must be in order
             const webhook = await drizzle.query.webhooks.findFirst({
               where: {
                 id: {
-                  eq: body.webhookId,
+                  eq: message.body.webhookId,
                 },
               },
             });
             if (typeof webhook === "undefined") {
-              throw new TypeError(`Unexpected Webhook ID ${body.webhookId}`);
+              throw new TypeError(`Unexpected Webhook ID ${message.body.webhookId}`);
             }
             webhookToken = webhook.token;
-            webhookTokenMap.set(body.webhookId, webhook.token);
+            webhookTokenMap.set(message.body.webhookId, webhook.token);
           }
           // oxlint-disable-next-line no-await-in-loop -- Must be in order
-          await executeWebhook(rest, body, webhookToken);
+          await executeWebhook(rest, message.body, webhookToken);
+          message.ack();
         }
       }
     }
