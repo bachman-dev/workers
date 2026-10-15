@@ -32,7 +32,7 @@
     },
     "runtime": {
       "name": "node",
-      "version": "v24.21.0",
+      "version": "24.22.0",
       "onFail": "download"
     }
   }
