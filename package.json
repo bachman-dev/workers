@@ -7,6 +7,8 @@
   "scripts": {
     "build": "turbo run build",
     "check": "turbo run check",
+    "db:generate": "turbo run db:generate",
+    "db:migrate": "turbo run db:migrate",
     "format": "oxfmt --write --config oxfmt.config.ts .",
     "format:check": "oxfmt --check --config oxfmt.config.ts .",
     "lint": "turbo run build && oxlint --config oxlint.config.ts .",
