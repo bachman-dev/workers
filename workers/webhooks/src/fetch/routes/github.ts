@@ -11,7 +11,8 @@ github.get("/", (ctx) => ctx.json({ success: true, message: "Point GitHub to thi
 
 github.post("/", validGithubWebhookHeaders, verifiedGithubWebhook, async (ctx) => {
   const { deliveryId } = ctx.req.valid("header");
-  const payload = ctx.req.raw.body;
+  // The raw body stream was already consumed by signature verification; read Hono's cached copy instead
+  const payload = await ctx.req.text();
   const existingDelivery = await ctx.env.GITHUB_BUCKET.head(`${deliveryId}.json`);
   if (payload) {
     if (!existingDelivery) {

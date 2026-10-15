@@ -59,15 +59,15 @@ export const verifiedGithubWebhook: MiddlewareHandler<
   }
 > = async (ctx, next): Promise<void> => {
   const { signature } = ctx.req.valid("header");
-  const [_sha256, signatureHex] = signature.split("=");
-  if (typeof signatureHex === "string") {
+  const [algorithm, signatureHex] = signature.split("=");
+  if (algorithm === "sha256" && typeof signatureHex === "string") {
     const encoder = new TextEncoder();
     const key = await crypto.subtle.importKey(
       "raw",
       encoder.encode(ctx.env.GITHUB_WEBHOOK_SECRET),
       { name: "HMAC", hash: { name: "SHA-256" } },
       false,
-      ["sign", "verify"],
+      ["verify"],
     );
     const payload = await ctx.req.text();
     const verified = await crypto.subtle.verify(
@@ -78,6 +78,7 @@ export const verifiedGithubWebhook: MiddlewareHandler<
     );
     if (verified) {
       await next();
+      return;
     }
   }
   throw new HTTPException(HTTPStatusCode.Unauthorized);
