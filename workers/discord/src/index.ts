@@ -1,5 +1,5 @@
 import type { MappedExportedHandler } from "@bachman-dev/workers-shared/cloudflare";
-import { APIVersion, type DiscordMessageQueueBody, REST } from "@bachman-dev/workers-shared/discord";
+import { APIVersion, REST } from "@bachman-dev/workers-shared/discord";
 
 import { getDrizzle } from "./db/index.ts";
 import type { QueueBodyMap, QueueName } from "./types/cloudflare.ts";
@@ -11,7 +11,7 @@ export default {
     const webhookTokenMap = new Map<string, string>();
     const drizzle = getDrizzle(env.DB);
 
-    const rejectedMessages: Message<DiscordMessageQueueBody>[] = [];
+    const rejectedMessages: unknown[] = [];
 
     for (const message of batch.messages) {
       switch (message.body.format) {
@@ -27,7 +27,7 @@ export default {
               },
             });
             if (typeof app === "undefined") {
-              rejectedMessages.push(message);
+              rejectedMessages.push({ error: "DISCORD_APP_ID_NOT_FOUND", message });
               throw new TypeError(`Unexpected application ID ${message.body.applicationId}`);
             }
             rest = new REST({ version: APIVersion });
@@ -56,7 +56,7 @@ export default {
               },
             });
             if (typeof webhook === "undefined") {
-              rejectedMessages.push(message);
+              rejectedMessages.push({ error: "DISCORD_WEBHOOK_ID_NOT_FOUND", message });
               throw new TypeError(`Unexpected Webhook ID ${message.body.webhookId}`);
             }
             webhookToken = webhook.token;
