@@ -86,6 +86,7 @@ const handleGithubWebhooks: MappedQueueMessageBatchHandler<"github-webhook-queue
       rejectedMessages.map((message) => {
         return {
           body: message,
+          contentType: "json",
         };
       }),
     );
