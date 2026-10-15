@@ -12,7 +12,8 @@
     {
       "binding": "DB",
       "database_name": "discord",
-      "migrations_dir": "drizzle/migrations",
+      "migrations_dir": "drizzle",
+      "migrations_pattern": "drizzle/*/migration.sql",
     },
   ],
   "queues": {
@@ -30,5 +31,31 @@
         "queue": "dead-letters",
       },
     ],
+  },
+  "previews": {
+    "d1_databases": [
+      {
+        "binding": "DB",
+        "database_name": "discord-preview",
+        "migrations_dir": "drizzle",
+        "migrations_pattern": "drizzle/*/migration.sql",
+      },
+    ],
+    "queues": {
+      "consumers": [
+        {
+          "queue": "preview-discord-message-queue",
+          "max_batch_size": 10,
+          "max_batch_timeout": 60,
+          "dead_letter_queue": "preview-dead-letters",
+        },
+      ],
+      "producers": [
+        {
+          "binding": "DEAD_LETTER_QUEUE",
+          "queue": "preview-dead-letters",
+        },
+      ],
+    },
   },
 }

@@ -5,7 +5,6 @@ import {
   ComponentType,
   splitComponentsToMessages,
 } from "@bachman-dev/workers-shared/discord";
-import { log } from "@bachman-dev/workers-shared/util";
 
 import type { Env, QueueBodyMap } from "../../types/cloudflare.ts";
 import { type GithubWebhookEvent, GithubWebhookEventName } from "../../types/github.ts";
@@ -14,12 +13,14 @@ const handleGithubWebhooks: MappedQueueMessageBatchHandler<"github-webhook-queue
   messages,
   env,
 ) => {
+  const rejectedMessages: unknown[] = [];
   const components: APIMessageTopLevelComponent[] = [];
   const promises = await Promise.allSettled(
     messages.map(async (message) => {
       const { deliveryId } = message.body;
       const deliveryObject = await env.GITHUB_BUCKET.get(`${deliveryId}.json`);
       if (deliveryObject === null) {
+        rejectedMessages.push({ error: "GH_WEBHOOK_NO_PAYLOAD_FOUND", message });
         throw new TypeError(`Delivery payload not found for ID ${deliveryId}`);
       }
       const webhook = await deliveryObject.json<GithubWebhookEvent>();
@@ -64,7 +65,7 @@ const handleGithubWebhooks: MappedQueueMessageBatchHandler<"github-webhook-queue
         case GithubWebhookEventName.SubIssues:
         case GithubWebhookEventName.Watch:
         default:
-          await env.DEAD_LETTER_QUEUE.send(message);
+          rejectedMessages.push({ error: "GH_WEBHOOK_EVENT_NOT_IMPLEMENTED", message });
       }
       message.ack();
     }),
@@ -72,11 +73,24 @@ const handleGithubWebhooks: MappedQueueMessageBatchHandler<"github-webhook-queue
 
   for (const [index, promise] of promises.entries()) {
     if (promise.status === "rejected") {
-      log("error", `Error on GitHub Queue Message ${index + 1} -- ${promise.reason}`);
+      rejectedMessages.push({ error: "GH_REJECTED_MESSAGE_PROMISE", index, message: messages[index] });
     }
   }
 
   const results = splitComponentsToMessages("webhook", components);
+  if (results.errors.length > 0) {
+    rejectedMessages.push({ error: "GH_DISCORD_MESSAGE_TOO_BIG", errors: results.errors });
+  }
+  if (rejectedMessages.length > 0) {
+    await env.DEAD_LETTER_QUEUE.sendBatch(
+      rejectedMessages.map((message) => {
+        return {
+          body: message,
+          contentType: "json",
+        };
+      }),
+    );
+  }
   if (results.messages.length > 0) {
     await env.DISCORD_QUEUE.sendBatch(
       results.messages.map((body) => {

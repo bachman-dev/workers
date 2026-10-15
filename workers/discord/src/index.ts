@@ -11,6 +11,8 @@ export default {
     const webhookTokenMap = new Map<string, string>();
     const drizzle = getDrizzle(env.DB);
 
+    const rejectedMessages: unknown[] = [];
+
     for (const message of batch.messages) {
       switch (message.body.format) {
         case "message": {
@@ -25,6 +27,7 @@ export default {
               },
             });
             if (typeof app === "undefined") {
+              rejectedMessages.push({ error: "DISCORD_APP_ID_NOT_FOUND", message });
               throw new TypeError(`Unexpected application ID ${message.body.applicationId}`);
             }
             rest = new REST({ version: APIVersion });
@@ -53,6 +56,7 @@ export default {
               },
             });
             if (typeof webhook === "undefined") {
+              rejectedMessages.push({ error: "DISCORD_WEBHOOK_ID_NOT_FOUND", message });
               throw new TypeError(`Unexpected Webhook ID ${message.body.webhookId}`);
             }
             webhookToken = webhook.token;
@@ -63,6 +67,16 @@ export default {
           message.ack();
         }
       }
+    }
+    if (rejectedMessages.length > 0) {
+      await env.DEAD_LETTER_QUEUE.sendBatch(
+        rejectedMessages.map((message) => {
+          return {
+            body: message,
+            contentType: "json",
+          };
+        }),
+      );
     }
   },
 } satisfies MappedExportedHandler<QueueName, QueueBodyMap, Env>;
