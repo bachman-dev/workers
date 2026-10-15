@@ -201,8 +201,8 @@ importers:
         version: 0.38.56
     devDependencies:
       '@cloudflare/workers-types':
-        specifier: 5.20261011.1
-        version: 5.20261011.1
+        specifier: 5.20261012.1
+        version: 5.20261012.1
       tsdown:
         specifier: 0.23.0
         version: 0.23.0(typescript@7.0.2)
@@ -294,8 +294,8 @@ packages:
   '@cloudflare/workers-types@5.20261008.1':
     resolution: {integrity: sha512-Ya6zuPTAQPka+Mn5rMI5f8Zl5bihhm+ytqhHiMzMgpLDGrD24A1k/Z/JPSBIqhIC0bx0AclgYyoZoRs6UWVlmw==}
 
-  '@cloudflare/workers-types@5.20261011.1':
-    resolution: {integrity: sha512-6dgFMnwq6Wn238QWGHHb93gqIXjbSQMALcurXmI+9SHkM0QeEdHDhbyxwnE8v1m41MUzCtNO/gnTRwI4FsS9fQ==}
+  '@cloudflare/workers-types@5.20261012.1':
+    resolution: {integrity: sha512-5Y0NrKXG9CZaNUZ6Dt3TLRE4UQe2/DGuxIhTEVYHUl0jAlv1TpQtI59YBAszRpSaZAMzbM8nqGc1n9Z2q4TVyA==}
 
   '@cspotcode/source-map-support@0.8.1':
     resolution: {integrity: sha512-IchNf6dN4tHoMFIn/7OE8LWZ19Y6q/67Bmf6vnGREv8RSbBVb9LPJxEcnwrcwX6ixSvaiGoomAUvu4YSxXrVgw==}
@@ -2165,7 +2165,7 @@ snapshots:
   '@cloudflare/workers-types@5.20261008.1':
     optional: true
 
-  '@cloudflare/workers-types@5.20261011.1': {}
+  '@cloudflare/workers-types@5.20261012.1': {}
 
   '@cspotcode/source-map-support@0.8.1':
     dependencies:
