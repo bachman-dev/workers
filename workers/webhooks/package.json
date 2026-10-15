@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@bachman-dev/workers-shared": "workspace:*",
-    "hono": "4.13.12"
+    "hono": "4.13.13"
   },
   "devDependencies": {
     "@types/node": "24.19.1"
