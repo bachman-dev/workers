@@ -7,6 +7,8 @@ import { validGithubWebhookHeaders, verifiedGithubWebhook } from "../middleware/
 
 const github = new Hono<{ Bindings: Env }>();
 
+github.get("/", (ctx) => ctx.json({ success: true, message: "Point GitHub to this URL for webhooks" }));
+
 github.post("/", validGithubWebhookHeaders, verifiedGithubWebhook, async (ctx) => {
   const { deliveryId } = ctx.req.valid("header");
   const payload = ctx.req.raw.body;
