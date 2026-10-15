@@ -7,6 +7,7 @@
     {
       "binding": "DB",
       "database_name": "discord-preview",
+      "database_id": "3e83daf4-a098-46aa-bf6b-59f1e171cd2e",
       "migrations_dir": "drizzle",
       "migrations_pattern": "drizzle/*/migration.sql",
     },
