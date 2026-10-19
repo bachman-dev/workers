@@ -26,16 +26,19 @@ export default {
                 },
               },
             });
-            if (typeof app === "undefined") {
-              rejectedMessages.push({ error: "DISCORD_APP_ID_NOT_FOUND", message });
-              throw new TypeError(`Unexpected application ID ${message.body.applicationId}`);
+            if (typeof app !== "undefined") {
+              rest = new REST({ version: APIVersion });
+              rest.setToken(app.token);
+              restMap.set(message.body.applicationId, rest);
             }
-            rest = new REST({ version: APIVersion });
-            rest.setToken(app.token);
-            restMap.set(message.body.applicationId, rest);
           }
-          // oxlint-disable-next-line no-await-in-loop -- Must be in order
-          await sendMessage(rest, message.body);
+          if (typeof rest === "undefined") {
+            // Acked below since it's sent to the dead letter queue instead of being retried
+            rejectedMessages.push({ error: "DISCORD_APP_ID_NOT_FOUND", message });
+          } else {
+            // oxlint-disable-next-line no-await-in-loop -- Must be in order
+            await sendMessage(rest, message.body);
+          }
           message.ack();
           break;
         }
@@ -55,15 +58,18 @@ export default {
                 },
               },
             });
-            if (typeof webhook === "undefined") {
-              rejectedMessages.push({ error: "DISCORD_WEBHOOK_ID_NOT_FOUND", message });
-              throw new TypeError(`Unexpected Webhook ID ${message.body.webhookId}`);
+            if (typeof webhook !== "undefined") {
+              webhookToken = webhook.token;
+              webhookTokenMap.set(message.body.webhookId, webhook.token);
             }
-            webhookToken = webhook.token;
-            webhookTokenMap.set(message.body.webhookId, webhook.token);
           }
-          // oxlint-disable-next-line no-await-in-loop -- Must be in order
-          await executeWebhook(rest, message.body, webhookToken);
+          if (typeof webhookToken === "undefined") {
+            // Acked below since it's sent to the dead letter queue instead of being retried
+            rejectedMessages.push({ error: "DISCORD_WEBHOOK_ID_NOT_FOUND", message });
+          } else {
+            // oxlint-disable-next-line no-await-in-loop -- Must be in order
+            await executeWebhook(rest, message.body, webhookToken);
+          }
           message.ack();
         }
       }
