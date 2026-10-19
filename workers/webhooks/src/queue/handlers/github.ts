@@ -25,14 +25,6 @@ const handleGithubWebhooks: MappedQueueMessageBatchHandler<"github-webhook-queue
       }
       const webhook = await deliveryObject.json<GithubWebhookEvent>();
       switch (webhook.event) {
-        case GithubWebhookEventName.CheckRun:
-        case GithubWebhookEventName.CommitComment:
-        case GithubWebhookEventName.Discussion:
-        case GithubWebhookEventName.DiscussionComment:
-        case GithubWebhookEventName.Fork:
-        case GithubWebhookEventName.IssueComment:
-        case GithubWebhookEventName.Issues:
-        case GithubWebhookEventName.Member:
         case GithubWebhookEventName.Ping:
           components.push({
             type: ComponentType.Container,
@@ -49,6 +41,14 @@ const handleGithubWebhooks: MappedQueueMessageBatchHandler<"github-webhook-queue
             ],
           });
           break;
+        case GithubWebhookEventName.CheckRun:
+        case GithubWebhookEventName.CommitComment:
+        case GithubWebhookEventName.Discussion:
+        case GithubWebhookEventName.DiscussionComment:
+        case GithubWebhookEventName.Fork:
+        case GithubWebhookEventName.IssueComment:
+        case GithubWebhookEventName.Issues:
+        case GithubWebhookEventName.Member:
         case GithubWebhookEventName.PullRequest:
         case GithubWebhookEventName.PullRequestReview:
         case GithubWebhookEventName.PullRequestReviewComment:
