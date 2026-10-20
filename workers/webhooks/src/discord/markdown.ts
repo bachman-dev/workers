@@ -25,8 +25,35 @@ function isTableStart(lines: string[], index: number): boolean {
   );
 }
 
-function convertHtml(text: string): string {
+const NAMED_HTML_ENTITIES: Readonly<Record<string, string>> = {
+  amp: "&",
+  apos: "'",
+  gt: ">",
+  lt: "<",
+  nbsp: " ",
+  quot: '"',
+};
+const HTML_ENTITY = /&(?:#(?<decimal>\d+)|#x(?<hex>[\da-f]+)|(?<name>[a-z]+));/giv;
+const MAX_CODE_POINT = 1_114_111;
+// Renovate puts zero-width spaces after `@` and `#` in release notes so GitHub doesn't ping people or link issues;
+// Discord does neither, so they only get in the way
+const ZERO_WIDTH_SPACE = "\u200B";
+
+// Decodes HTML entities like `&amp;` and `&#8203;`, which GitHub renders but Discord shows as-is
+function decodeHtmlEntities(text: string): string {
   return text
+    .replaceAll(HTML_ENTITY, (entity, decimal?: string, hex?: string, name?: string) => {
+      if (name !== undefined) {
+        return NAMED_HTML_ENTITIES[name.toLowerCase()] ?? entity;
+      }
+      const codePoint = decimal === undefined ? Number(`0x${hex ?? ""}`) : Number(decimal);
+      return codePoint > 0 && codePoint <= MAX_CODE_POINT ? String.fromCodePoint(codePoint) : entity;
+    })
+    .replaceAll(ZERO_WIDTH_SPACE, "");
+}
+
+function convertHtml(text: string): string {
+  const converted = text
     .replaceAll(/<!--[\s\S]*?(?:-->|$)/gv, "")
     .replaceAll(/<table(?:\s[^>]*)?>[\s\S]*?(?:<\/table>|$)/giv, "\n(table)\n")
     .replaceAll(/<br\s*\/?>/giv, "\n")
@@ -46,6 +73,8 @@ function convertHtml(text: string): string {
       (_match, heading: string) => `**${heading.trim()}**`,
     )
     .replaceAll(STRIPPED_HTML_TAGS, "");
+  // Decoded last so that escaped markup like `&lt;details&gt;` stays as text
+  return decodeHtmlEntities(converted);
 }
 
 // Converts a line of GitHub markdown outside of code blocks into the closest equivalent Discord supports
