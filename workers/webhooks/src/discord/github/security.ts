@@ -141,7 +141,7 @@ export function secretScanningAlertLocationMessage(
     where = `In ${humanize(location.type)}`;
   }
   return {
-    status: "Failure",
+    status: "Attention",
     title: "Secret found in a new location",
     subject: secretScanningAlertSubject(alert),
     sender,
