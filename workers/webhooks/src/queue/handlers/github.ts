@@ -1,22 +1,77 @@
 // oxlint-disable unicorn/no-useless-switch-case
 import type { MappedQueueMessageBatchHandler } from "@bachman-dev/workers-shared/cloudflare";
-import {
-  type APIMessageTopLevelComponent,
-  ComponentType,
-  splitComponentsToMessages,
-} from "@bachman-dev/workers-shared/discord";
+import { type APIMessageTopLevelComponent, splitComponentsToMessages } from "@bachman-dev/workers-shared/discord";
 
+import * as messages from "../../discord/github/index.ts";
+import { type GithubMessage, type MessageContext, buildGithubMessage } from "../../discord/message.ts";
 import type { Env, QueueBodyMap } from "../../types/cloudflare.ts";
 import { type GithubWebhookEvent, GithubWebhookEventName } from "../../types/github.ts";
 
+/** Marks an event that has no Discord message yet, as opposed to an action that is deliberately not posted. */
+const NOT_IMPLEMENTED = Symbol("not implemented");
+
+function githubEventMessage(webhook: GithubWebhookEvent): GithubMessage | undefined | typeof NOT_IMPLEMENTED {
+  switch (webhook.event) {
+    case GithubWebhookEventName.Ping:
+      return messages.pingMessage(webhook.payload);
+    case GithubWebhookEventName.CheckRun:
+      return messages.checkRunMessage(webhook.payload);
+    case GithubWebhookEventName.CommitComment:
+      return messages.commitCommentMessage(webhook.payload);
+    case GithubWebhookEventName.Discussion:
+      return messages.discussionMessage(webhook.payload);
+    case GithubWebhookEventName.DiscussionComment:
+      return messages.discussionCommentMessage(webhook.payload);
+    case GithubWebhookEventName.Fork:
+      return messages.forkMessage(webhook.payload);
+    case GithubWebhookEventName.IssueComment:
+      return messages.issueCommentMessage(webhook.payload);
+    case GithubWebhookEventName.Issues:
+      return messages.issuesMessage(webhook.payload);
+    case GithubWebhookEventName.Member:
+      return messages.memberMessage(webhook.payload);
+    case GithubWebhookEventName.PullRequest:
+      return messages.pullRequestMessage(webhook.payload);
+    case GithubWebhookEventName.PullRequestReview:
+      return messages.pullRequestReviewMessage(webhook.payload);
+    case GithubWebhookEventName.PullRequestReviewComment:
+      return messages.pullRequestReviewCommentMessage(webhook.payload);
+    case GithubWebhookEventName.PullRequestReviewThread:
+      return messages.pullRequestReviewThreadMessage(webhook.payload);
+    case GithubWebhookEventName.Push:
+      return messages.pushMessage(webhook.payload);
+    case GithubWebhookEventName.Release:
+      return messages.releaseMessage(webhook.payload);
+    case GithubWebhookEventName.Repository:
+      return messages.repositoryMessage(webhook.payload);
+    case GithubWebhookEventName.RepositoryAdvisory:
+      return messages.repositoryAdvisoryMessage(webhook.payload);
+    case GithubWebhookEventName.RepositoryImport:
+      return messages.repositoryImportMessage(webhook.payload);
+    case GithubWebhookEventName.RepositoryVulnerabilityAlert:
+      return messages.repositoryVulnerabilityAlertMessage(webhook.payload);
+    case GithubWebhookEventName.SecretScanningAlert:
+      return messages.secretScanningAlertMessage(webhook.payload);
+    case GithubWebhookEventName.SecretScanningAlertLocation:
+      return messages.secretScanningAlertLocationMessage(webhook.payload);
+    case GithubWebhookEventName.SubIssues:
+      return messages.subIssuesMessage(webhook.payload);
+    case GithubWebhookEventName.Watch:
+      return messages.watchMessage(webhook.payload);
+    case GithubWebhookEventName.SecretScanningScan:
+    default:
+      return NOT_IMPLEMENTED;
+  }
+}
+
 const handleGithubWebhooks: MappedQueueMessageBatchHandler<"github-webhook-queue", QueueBodyMap, Env> = async (
-  messages,
+  queueMessages,
   env,
 ) => {
+  const context: MessageContext = { mentionId: env.DISCORD_MENTION_ID };
   const rejectedMessages: unknown[] = [];
-  const components: APIMessageTopLevelComponent[] = [];
   const promises = await Promise.allSettled(
-    messages.map(async (message) => {
+    queueMessages.map(async (message): Promise<APIMessageTopLevelComponent | undefined> => {
       const { deliveryId } = message.body;
       const deliveryObject = await env.GITHUB_BUCKET.get(`${deliveryId}.json`);
       if (deliveryObject === null) {
@@ -24,56 +79,24 @@ const handleGithubWebhooks: MappedQueueMessageBatchHandler<"github-webhook-queue
         throw new TypeError(`Delivery payload not found for ID ${deliveryId}`);
       }
       const webhook = await deliveryObject.json<GithubWebhookEvent>();
-      switch (webhook.event) {
-        case GithubWebhookEventName.Ping:
-          components.push({
-            type: ComponentType.Container,
-            accent_color: 0x90ee90,
-            components: [
-              {
-                type: ComponentType.TextDisplay,
-                content: `# Ping`,
-              },
-              {
-                type: ComponentType.TextDisplay,
-                content: `A ping event from ${webhook.payload.sender?.name ?? "someone"} arrived at the webhook and was sent to Discord.`,
-              },
-            ],
-          });
-          break;
-        case GithubWebhookEventName.CheckRun:
-        case GithubWebhookEventName.CommitComment:
-        case GithubWebhookEventName.Discussion:
-        case GithubWebhookEventName.DiscussionComment:
-        case GithubWebhookEventName.Fork:
-        case GithubWebhookEventName.IssueComment:
-        case GithubWebhookEventName.Issues:
-        case GithubWebhookEventName.Member:
-        case GithubWebhookEventName.PullRequest:
-        case GithubWebhookEventName.PullRequestReview:
-        case GithubWebhookEventName.PullRequestReviewComment:
-        case GithubWebhookEventName.PullRequestReviewThread:
-        case GithubWebhookEventName.Push:
-        case GithubWebhookEventName.Release:
-        case GithubWebhookEventName.Repository:
-        case GithubWebhookEventName.RepositoryAdvisory:
-        case GithubWebhookEventName.RepositoryImport:
-        case GithubWebhookEventName.RepositoryVulnerabilityAlert:
-        case GithubWebhookEventName.SecretScanningAlert:
-        case GithubWebhookEventName.SecretScanningAlertLocation:
-        case GithubWebhookEventName.SecretScanningScan:
-        case GithubWebhookEventName.SubIssues:
-        case GithubWebhookEventName.Watch:
-        default:
-          rejectedMessages.push({ error: "GH_WEBHOOK_EVENT_NOT_IMPLEMENTED", message });
-      }
+      const githubMessage = githubEventMessage(webhook);
       message.ack();
+      if (githubMessage === NOT_IMPLEMENTED) {
+        rejectedMessages.push({ error: "GH_WEBHOOK_EVENT_NOT_IMPLEMENTED", message });
+        return undefined;
+      }
+      // Actions we don't post, e.g. an issue being labeled, are acknowledged without a message
+      return githubMessage === undefined ? undefined : buildGithubMessage(githubMessage, context);
     }),
   );
 
+  // Keep the components in delivery order rather than the order their payloads finished loading
+  const components: APIMessageTopLevelComponent[] = [];
   for (const [index, promise] of promises.entries()) {
     if (promise.status === "rejected") {
-      rejectedMessages.push({ error: "GH_REJECTED_MESSAGE_PROMISE", index, message: messages[index] });
+      rejectedMessages.push({ error: "GH_REJECTED_MESSAGE_PROMISE", index, message: queueMessages[index] });
+    } else if (promise.value !== undefined) {
+      components.push(promise.value);
     }
   }
 
@@ -98,7 +121,8 @@ const handleGithubWebhooks: MappedQueueMessageBatchHandler<"github-webhook-queue
           body: {
             format: "webhook",
             webhookId: env.GITHUB_WEBHOOK_ID,
-            body,
+            // GitHub text can contain @everyone or Discord mention syntax, so only ever ping the configured user
+            body: { ...body, allowed_mentions: { parse: [], users: [env.DISCORD_MENTION_ID] } },
           },
         };
       }),

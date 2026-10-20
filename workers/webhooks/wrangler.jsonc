@@ -9,7 +9,7 @@
     "enabled": true,
   },
   "secrets": {
-    "required": ["BASE_PATH", "GITHUB_WEBHOOK_SECRET", "GITHUB_WEBHOOK_ID"],
+    "required": ["BASE_PATH", "DISCORD_MENTION_ID", "GITHUB_WEBHOOK_SECRET", "GITHUB_WEBHOOK_ID"],
   },
   "r2_buckets": [
     {
