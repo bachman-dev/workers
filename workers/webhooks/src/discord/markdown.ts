@@ -202,3 +202,27 @@ export function formatMarkdown(markdown: string | null | undefined, maxLength: n
   const converted = convertMarkdown(markdown);
   return converted === "" ? undefined : truncateMarkdown(converted, maxLength);
 }
+
+/**
+ * Prepares text for use as a masked link's label. Discord shows backslash escapes inside a label as-is, so nothing is
+ * escaped; instead, brackets that would end the label early are swapped for parentheses. Balanced brackets, as in
+ * `renovate[bot]`, are kept.
+ *
+ * @param {string} text - Plain text from GitHub, e.g. an issue title.
+ * @returns {string} Text that can sit between a masked link's square brackets.
+ */
+export function linkLabel(text: string): string {
+  const label = text.replaceAll(/\s+/gv, " ");
+  let depth = 0;
+  for (const character of label) {
+    if (character === "[") {
+      depth += 1;
+    } else if (character === "]") {
+      depth -= 1;
+    }
+    if (depth < 0 || depth > 1) {
+      break;
+    }
+  }
+  return depth === 0 ? label : label.replaceAll("[", "(").replaceAll("]", ")");
+}

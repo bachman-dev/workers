@@ -40,35 +40,40 @@ export function commitCommentMessage(payload: GithubWebhookPayload<"commit_comme
   };
 }
 
-export function pushMessage(payload: GithubWebhookPayload<"push">): GithubMessage {
+export function pushMessage(payload: GithubWebhookPayload<"push">): GithubMessage | undefined {
   const { commits, repository, sender } = payload;
   const isTag = payload.ref.startsWith("refs/tags/");
-  const kind = isTag ? "Tag" : "Branch";
   const name = payload.ref.replace(/^refs\/(?:heads|tags)\//v, "");
 
+  // Branches come and go all the time, e.g. for pull requests and the merge queue, so only pushes to existing branches
+  // are posted
+  if (!isTag && (payload.created || payload.deleted)) {
+    return undefined;
+  }
   if (payload.deleted) {
     return {
       status: "Failure",
-      title: `${kind} deleted`,
+      title: "Tag deleted",
       subject: code(name),
       sender,
       details: [`was ${commitLink(repository, payload.before)}`],
       repository,
     };
   }
-  if (payload.created && (isTag || commits.length === 0)) {
+  if (payload.created) {
     return {
       status: "Info",
-      title: `${kind} created`,
+      title: "Tag created",
       subject: refLink(repository, name),
       sender,
       details: [commitLink(repository, payload.after)],
       repository,
-      link: { label: `View ${kind.toLowerCase()}`, url: payload.compare },
+      link: { label: "View tag", url: payload.compare },
     };
   }
 
-  const commitCount = `${commits.length} commit${commits.length === 1 ? "" : "s"}`;
+  // A push can move a branch to commits it already had, e.g. a force-push back to an earlier commit
+  const commitCount = commits.length === 0 ? "" : ` ${commits.length} commit${commits.length === 1 ? "" : "s"}`;
   const listed = commits
     .slice(-MAX_LISTED_COMMITS)
     .map(
@@ -78,8 +83,8 @@ export function pushMessage(payload: GithubWebhookPayload<"push">): GithubMessag
   const unlisted = commits.length - listed.length;
   return {
     status: "Info",
-    title: payload.forced ? `Force-pushed ${commitCount}` : `Pushed ${commitCount}`,
-    subject: `${payload.created ? "to new branch" : "to"} ${refLink(repository, name)}`,
+    title: payload.forced ? `Force-pushed${commitCount}` : `Pushed${commitCount}`,
+    subject: `to ${refLink(repository, name)}`,
     sender,
     body: [
       [unlisted > 0 ? `-# ${unlisted} earlier commit${unlisted === 1 ? "" : "s"} not shown` : undefined, ...listed]
