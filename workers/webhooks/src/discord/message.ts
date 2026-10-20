@@ -7,7 +7,7 @@ import {
   SeparatorSpacingSize,
 } from "@bachman-dev/workers-shared/discord";
 
-import { escapeMarkdown, truncate } from "./markdown.ts";
+import { escapeMarkdown, linkLabel, truncate } from "./markdown.ts";
 
 const MAX_TITLE_LENGTH = 200;
 const MAX_LINK_LABEL_LENGTH = 200;
@@ -15,15 +15,15 @@ const MAX_LINK_LABEL_LENGTH = 200;
 const MAX_BUTTON_LABEL_LENGTH = 80;
 
 /**
- * Builds a masked markdown link with an escaped label, or just the label if there is no URL.
+ * Builds a masked markdown link, or just the escaped label if there is no URL.
  *
  * @param {string} label - Plain-text label, e.g. an issue title.
  * @param {string | null | undefined} url - Where the link goes.
  * @returns {string} A markdown link.
  */
 function markdownLink(label: string, url: string | null | undefined): string {
-  const escaped = escapeMarkdown(truncate(label, MAX_LINK_LABEL_LENGTH));
-  return typeof url === "string" && url !== "" ? `[${escaped}](${url})` : escaped;
+  const shortened = truncate(label, MAX_LINK_LABEL_LENGTH);
+  return typeof url === "string" && url !== "" ? `[${linkLabel(shortened)}](${url})` : escapeMarkdown(shortened);
 }
 
 /**
