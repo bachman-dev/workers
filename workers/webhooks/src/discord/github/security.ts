@@ -89,9 +89,9 @@ export function secretScanningAlertMessage(
 
   switch (payload.action) {
     case "created":
-      return { ...message, status: "Failure", title: "Secret detected" };
+      return { ...message, status: "Attention", title: "Secret detected" };
     case "reopened":
-      return { ...message, status: "Failure", title: "Secret scanning alert reopened" };
+      return { ...message, status: "Attention", title: "Secret scanning alert reopened" };
     case "resolved": {
       const { resolution, resolution_comment: comment } = alert;
       return {
