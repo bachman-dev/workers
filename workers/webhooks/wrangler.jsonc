@@ -23,7 +23,7 @@
       {
         "queue": "github-webhook-queue",
         "max_batch_size": 10,
-        "max_batch_timeout": 60,
+        "max_batch_timeout": 5,
         "dead_letter_queue": "dead-letters",
       },
     ],
@@ -54,7 +54,7 @@
         {
           "queue": "preview-github-webhook-queue",
           "max_batch_size": 10,
-          "max_batch_timeout": 60,
+          "max_batch_timeout": 5,
           "dead_letter_queue": "preview-dead-letters",
         },
       ],
