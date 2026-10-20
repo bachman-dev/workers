@@ -17,7 +17,7 @@
   },
   "devDependencies": {
     "@bachman-dev/oxc-config": "0.3.0",
-    "oxfmt": "0.72.0",
+    "oxfmt": "0.73.0",
     "oxlint": "1.88.0",
     "oxlint-tsgolint": "7.0.2004",
     "turbo": "2.11.9",
