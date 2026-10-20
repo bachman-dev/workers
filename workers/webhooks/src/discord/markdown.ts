@@ -28,6 +28,7 @@ function isTableStart(lines: string[], index: number): boolean {
 function convertHtml(text: string): string {
   return text
     .replaceAll(/<!--[\s\S]*?(?:-->|$)/gv, "")
+    .replaceAll(/<table(?:\s[^>]*)?>[\s\S]*?(?:<\/table>|$)/giv, "\n(table)\n")
     .replaceAll(/<br\s*\/?>/giv, "\n")
     .replaceAll(/<hr\s*\/?>/giv, "\n---\n")
     .replaceAll(/<img\s[^>]*>/giv, (tag) => {
