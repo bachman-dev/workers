@@ -19,22 +19,10 @@
     },
   ],
   "queues": {
-    "consumers": [
-      {
-        "queue": "github-webhook-queue",
-        "max_batch_size": 10,
-        "max_batch_timeout": 5,
-        "dead_letter_queue": "dead-letters",
-      },
-    ],
     "producers": [
       {
         "binding": "DISCORD_QUEUE",
         "queue": "discord-message-queue",
-      },
-      {
-        "binding": "GITHUB_QUEUE",
-        "queue": "github-webhook-queue",
       },
       {
         "binding": "DEAD_LETTER_QUEUE",
@@ -50,22 +38,10 @@
       },
     ],
     "queues": {
-      "consumers": [
-        {
-          "queue": "preview-github-webhook-queue",
-          "max_batch_size": 10,
-          "max_batch_timeout": 5,
-          "dead_letter_queue": "preview-dead-letters",
-        },
-      ],
       "producers": [
         {
           "binding": "DISCORD_QUEUE",
           "queue": "preview-discord-message-queue",
-        },
-        {
-          "binding": "GITHUB_QUEUE",
-          "queue": "preview-github-webhook-queue",
         },
         {
           "binding": "DEAD_LETTER_QUEUE",
