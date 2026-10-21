@@ -101,16 +101,18 @@ export function countTextLength(component: APIMessageComponent): number {
  *
  * @param {MessageFormat} format - Whether the bodies are for a bot channel message or a webhook execution.
  * @param {APIMessageTopLevelComponent[]} components - Top-level components to send, in order.
- * @returns {SplitComponentsResult} The message bodies to send, plus an error for each component that could not fit in
- *   any message.
+ * @returns {SplitComponentsResult} The message bodies to send and which components each one holds, plus an error for
+ *   each component that could not fit in any message.
  */
 export function splitComponentsToMessages<Format extends MessageFormat>(
   format: Format,
   components: APIMessageTopLevelComponent[],
 ): SplitComponentsResult<Format> {
   const messages: MessageBodyByFormat[Format][] = [];
+  const indices: number[][] = [];
   const errors: ComponentLimitError[] = [];
   let current: APIMessageTopLevelComponent[] = [];
+  let currentIndices: number[] = [];
   let currentCount = 0;
   let currentTextLength = 0;
 
@@ -125,20 +127,24 @@ export function splitComponentsToMessages<Format extends MessageFormat>(
         currentTextLength + textLength > MAX_TEXT_LENGTH_PER_MESSAGE
       ) {
         messages.push({ components: current, flags: MessageFlags.IsComponentsV2 });
+        indices.push(currentIndices);
         current = [];
+        currentIndices = [];
         currentCount = 0;
         currentTextLength = 0;
       }
       current.push(component);
+      currentIndices.push(index);
       currentCount += count;
       currentTextLength += textLength;
     }
   }
   if (current.length > 0) {
     messages.push({ components: current, flags: MessageFlags.IsComponentsV2 });
+    indices.push(currentIndices);
   }
 
-  return { messages, errors };
+  return { messages, indices, errors };
 }
 
 export async function verifyDiscordRequest(

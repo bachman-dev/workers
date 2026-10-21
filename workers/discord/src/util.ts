@@ -1,6 +1,7 @@
 import {
   type DiscordChannelMessageQueueBody,
   type DiscordWebhookMessageQueueBody,
+  type MessageBodyByFormat,
   type REST,
   type RESTPostAPIWebhookWithTokenQuery,
   Routes,
@@ -9,10 +10,11 @@ import {
 
 export async function executeWebhook(
   rest: REST,
-  message: DiscordWebhookMessageQueueBody,
+  destination: DiscordWebhookMessageQueueBody,
   webhookToken: string,
+  body: MessageBodyByFormat["webhook"],
 ): Promise<void> {
-  const { body, query, webhookId } = message;
+  const { query, webhookId } = destination;
   await rest.post(Routes.webhook(webhookId, webhookToken), {
     auth: false,
     body,
@@ -20,7 +22,10 @@ export async function executeWebhook(
   });
 }
 
-export async function sendMessage(rest: REST, message: DiscordChannelMessageQueueBody): Promise<void> {
-  const { body, channelId } = message;
-  await rest.post(Routes.channelMessages(channelId), { body });
+export async function sendMessage(
+  rest: REST,
+  destination: DiscordChannelMessageQueueBody,
+  body: MessageBodyByFormat["message"],
+): Promise<void> {
+  await rest.post(Routes.channelMessages(destination.channelId), { body });
 }
