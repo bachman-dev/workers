@@ -57,7 +57,7 @@ function header(message: GithubMessage): APIComponentInContainer[] {
     {
       type: ComponentType.Section,
       components: content,
-      accessory: { type: ComponentType.Thumbnail, media: { url: sender.avatar_url }, description: sender.login },
+      accessory: { type: ComponentType.Thumbnail, media: { url: sender.avatar_url } },
     },
   ];
 }

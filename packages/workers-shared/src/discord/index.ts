@@ -7,7 +7,6 @@ export {
   splitComponentsToMessages,
   verifyDiscordRequest,
 } from "./util.ts";
-export type * from "discord-api-types/v10";
 export {
   APIVersion,
   ApplicationCommandOptionType,
@@ -21,6 +20,7 @@ export {
   SeparatorSpacingSize,
   Utils,
 } from "discord-api-types/v10";
+export type * from "discord-api-types/v10";
 export { CDN, makeURLSearchParams, REST } from "@discordjs/rest";
 
 export type * from "./types.ts";
