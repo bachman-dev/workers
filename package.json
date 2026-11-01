@@ -22,7 +22,7 @@
     "oxlint-tsgolint": "7.0.2005",
     "turbo": "2.11.10",
     "typescript": "7.0.2",
-    "wrangler": "4.151.1"
+    "wrangler": "4.155.0"
   },
   "devEngines": {
     "packageManager": {
