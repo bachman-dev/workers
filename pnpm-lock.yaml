@@ -167,8 +167,8 @@ importers:
   .:
     devDependencies:
       '@bachman-dev/oxc-config':
-        specifier: 0.3.0
-        version: 0.3.0(oxfmt@0.75.0)(oxlint@1.90.0(oxlint-tsgolint@7.0.2005))
+        specifier: 0.4.0
+        version: 0.4.0(oxfmt@0.75.0)(oxlint@1.90.0(oxlint-tsgolint@7.0.2005))
       node:
         specifier: runtime:26.13.0
         version: runtime:26.13.0
@@ -237,11 +237,11 @@ importers:
 
 packages:
 
-  '@bachman-dev/oxc-config@0.3.0':
-    resolution: {integrity: sha512-uHa3ghCPpos40W/ZUZ6HVfUWsx+SClXV4fU1BMFHAO4vHsiUIRnh1dqKEzrk7zeu1P48EGt2j8PFeMexUHSbxA==}
+  '@bachman-dev/oxc-config@0.4.0':
+    resolution: {integrity: sha512-IJbP9CMeXRGyPUVM7/hirYVjMiD6JLUYClDwsNhVs/dl6D8rLLRXITRCfmPXez+7engo0vIXVMFYVOpdfmbKaw==}
     peerDependencies:
-      oxfmt: '>=0.68.0 <1'
-      oxlint: ^1.83.0
+      oxfmt: '>=0.75.0 <1'
+      oxlint: ^1.90.0
     peerDependenciesMeta:
       oxfmt:
         optional: true
@@ -2046,7 +2046,7 @@ packages:
 
 snapshots:
 
-  '@bachman-dev/oxc-config@0.3.0(oxfmt@0.75.0)(oxlint@1.90.0(oxlint-tsgolint@7.0.2005))':
+  '@bachman-dev/oxc-config@0.4.0(oxfmt@0.75.0)(oxlint@1.90.0(oxlint-tsgolint@7.0.2005))':
     optionalDependencies:
       oxfmt: 0.75.0
       oxlint: 1.90.0(oxlint-tsgolint@7.0.2005)
