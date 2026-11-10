@@ -207,6 +207,19 @@ importers:
         specifier: 0.23.4
         version: 0.23.4(typescript@7.0.2)
 
+  workers/bona-fide-bot:
+    dependencies:
+      '@bachman-dev/workers-shared':
+        specifier: workspace:*
+        version: link:../../packages/workers-shared
+      hono:
+        specifier: 4.13.14
+        version: 4.13.14
+    devDependencies:
+      '@types/node':
+        specifier: 26.6.6
+        version: 26.6.6
+
   workers/discord:
     dependencies:
       '@bachman-dev/workers-shared':
@@ -216,6 +229,9 @@ importers:
         specifier: 1.0.0-rc.5-ab785fc
         version: 1.0.0-rc.5-ab785fc(@cloudflare/workers-types@5.20261106.1)
     devDependencies:
+      '@types/node':
+        specifier: 26.6.6
+        version: 26.6.6
       drizzle-kit:
         specifier: 1.0.0-rc.5-ab785fc
         version: 1.0.0-rc.5-ab785fc

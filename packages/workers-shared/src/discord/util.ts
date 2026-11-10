@@ -150,7 +150,7 @@ export function splitComponentsToMessages<Format extends MessageFormat>(
 export async function verifyDiscordRequest(
   publicKey: string,
   signatureHeader: string,
-  timestamp: string,
+  timestampHeader: string,
   body: string,
 ): Promise<boolean> {
   const cryptoKey = await crypto.subtle.importKey(
@@ -164,5 +164,5 @@ export async function verifyDiscordRequest(
     ["verify"],
   );
   const signature = stringToUInt8Array(signatureHeader, "hex");
-  return await crypto.subtle.verify("Ed25519", cryptoKey, signature, new TextEncoder().encode(timestamp + body));
+  return await crypto.subtle.verify("Ed25519", cryptoKey, signature, new TextEncoder().encode(timestampHeader + body));
 }
