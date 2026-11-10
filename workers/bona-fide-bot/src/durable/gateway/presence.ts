@@ -1,36 +1,13 @@
 import {
   ActivityType,
-  type GatewayActivityUpdateData,
   type GatewayPresenceUpdateData,
   PresenceUpdateStatus,
 } from "@bachman-dev/workers-shared/discord";
 
 import type { ShownActivities } from "./types.ts";
 
-/** Shown as "Playing …", "Listening to …", "Watching …" or "Competing in …". */
-interface NamedActivity {
-  type: ActivityType.Competing | ActivityType.Listening | ActivityType.Playing | ActivityType.Watching;
-  name: string;
-}
-
-/** Shown as "Streaming …"; Discord only accepts `https://twitch.tv/` and `https://youtube.com/` URLs. */
-interface StreamingActivity {
-  type: ActivityType.Streaming;
-  name: string;
-  url: string;
-}
-
-/** Shown as the text alone, like a user's custom status. */
-interface CustomActivity {
-  type: ActivityType.Custom;
-  state: string;
-}
-
-/** The fields bots may set for each activity type. */
-type BotActivity = CustomActivity | NamedActivity | StreamingActivity;
-
-interface ActivityPick {
-  activity: BotActivity;
+interface QuipPick {
+  quip: string;
   key: string;
   startsCycle: boolean;
 }
@@ -39,90 +16,82 @@ interface ActivityPick {
 const CUSTOM_STATUS_NAME = "Custom Status";
 
 /**
- * The pool activities are drawn from when the bot identifies and at the top of each hour. Every quip is shown once
- * before any repeats.
+ * Quips shown as the bot's custom status, drawn when it identifies and at the top of each hour. Every quip is shown
+ * once before any repeats.
+ *
+ * These are custom statuses rather than Playing/Watching/etc. activities because the member list drops those verbs and
+ * shows only the name, so the verb is written into the text instead.
  */
-const ACTIVITIES: readonly [BotActivity, ...BotActivity[]] = [
+const QUIPS: readonly [string, ...string[]] = [
   // Star Trek: The Next Generation
-  { state: "Tea. Earl Grey. Hot.", type: ActivityType.Custom },
-  { name: "Data attempt a joke", type: ActivityType.Watching },
-  { name: "the Ressikan flute", type: ActivityType.Listening },
-  { name: "poker with the senior staff", type: ActivityType.Playing },
-  { name: "Parrises Squares", type: ActivityType.Competing },
+  "Tea. Earl Grey. Hot.",
+  "Watching Data attempt a joke",
+  "Listening to the Ressikan flute",
+  "Playing poker with the senior staff",
+  "Competing in Parrises Squares",
 
   // The Wheel of Time
-  { state: "The Wheel weaves as the Wheel wills", type: ActivityType.Custom },
-  { name: "Nynaeve tug her braid", type: ActivityType.Watching },
-  { name: "dice with Mat Cauthon", type: ActivityType.Playing },
-  { name: "a gleeman's tale", type: ActivityType.Listening },
+  "The Wheel weaves as the Wheel wills",
+  "Watching Nynaeve tug her braid",
+  "Playing dice with Mat Cauthon",
+  "Listening to a gleeman's tale",
 
   // Team Fortress 2
-  { state: "A Spy is sappin' my status!", type: ActivityType.Custom },
-  { name: "2Fort. Again.", type: ActivityType.Playing },
-  { name: "the Soldier explain Sun Tzu", type: ActivityType.Listening },
-  { name: "a hat-trading summit", type: ActivityType.Competing },
+  "A Spy is sappin' my status!",
+  "Playing 2Fort. Again.",
+  "Listening to the Soldier explain Sun Tzu",
+  "Competing in a hat-trading summit",
 
   // Gundam
-  { state: "The Red Comet is three times faster than this bot", type: ActivityType.Custom },
-  { name: "the skies for a red Zaku", type: ActivityType.Watching },
-  { name: "with Gunpla", type: ActivityType.Playing },
+  "The Red Comet is three times faster than this bot",
+  "Watching the skies for a red Zaku",
+  "Playing with Gunpla",
 
   // Zenless Zone Zero
-  { state: "Proxy online. Hollows: avoided.", type: ActivityType.Custom },
-  { name: "a Hollow from a safe distance", type: ActivityType.Watching },
-  { name: "the Random Play shelves", type: ActivityType.Listening },
-  { name: "with a Bangboo", type: ActivityType.Playing },
+  "Proxy online. Hollows: avoided.",
+  "Watching a Hollow from a safe distance",
+  "Listening to the Random Play shelves",
+  "Playing with a Bangboo",
 ];
 
-function toActivityUpdate(activity: BotActivity): GatewayActivityUpdateData {
-  switch (activity.type) {
-    case ActivityType.Custom:
-      return { name: CUSTOM_STATUS_NAME, state: activity.state, type: activity.type };
-    case ActivityType.Streaming:
-      return { name: activity.name, type: activity.type, url: activity.url };
-    default:
-      return { name: activity.name, type: activity.type };
-  }
-}
-
 /**
- * Identifies an activity by its type and text, so the shown set survives edits to the list.
+ * Identifies a quip by its text, so the shown set survives edits to the list.
  *
- * @param {BotActivity} activity - The activity.
+ * @param {string} quip - The quip.
  * @returns {string} A key that is stable across deploys.
  */
-function activityKey(activity: BotActivity): string {
-  return `${activity.type}:${activity.type === ActivityType.Custom ? activity.state : activity.name}`;
+function quipKey(quip: string): string {
+  return `${ActivityType.Custom}:${quip}`;
 }
 
 /**
- * Picks a random activity that hasn't been shown this cycle. Once all have been shown, a new cycle starts with any
- * activity but the current one, so the cycle boundary never repeats a quip back to back either.
+ * Picks a random quip that hasn't been shown this cycle. Once all have been shown, a new cycle starts with any quip but
+ * the current one, so the cycle boundary never repeats a quip back to back either.
  *
- * @param {ShownActivities} history - The activities shown so far this cycle.
- * @returns {ActivityPick} The chosen activity, its key, and whether it starts a new cycle.
+ * @param {ShownActivities} history - The quips shown so far this cycle.
+ * @returns {QuipPick} The chosen quip, its key, and whether it starts a new cycle.
  */
-function pickActivity(history: ShownActivities): ActivityPick {
-  const unshown = ACTIVITIES.filter((activity) => !history.shown.has(activityKey(activity)));
+function pickQuip(history: ShownActivities): QuipPick {
+  const unshown = QUIPS.filter((quip) => !history.shown.has(quipKey(quip)));
   const startsCycle = unshown.length === 0;
-  const pool = startsCycle ? ACTIVITIES.filter((activity) => activityKey(activity) !== history.current) : unshown;
-  const activity = pool[Math.floor(Math.random() * pool.length)] ?? ACTIVITIES[0];
-  return { activity, key: activityKey(activity), startsCycle };
+  const pool = startsCycle ? QUIPS.filter((quip) => quipKey(quip) !== history.current) : unshown;
+  const quip = pool[Math.floor(Math.random() * pool.length)] ?? QUIPS[0];
+  return { key: quipKey(quip), quip, startsCycle };
 }
 
 /**
- * Builds an online presence showing one activity.
+ * Builds an online presence with a quip as the custom status.
  *
- * @param {BotActivity} activity - The activity to show.
+ * @param {string} quip - The text to show.
  * @returns {GatewayPresenceUpdateData} The presence to send in Identify or a Presence Update.
  */
-function toPresence(activity: BotActivity): GatewayPresenceUpdateData {
+function toPresence(quip: string): GatewayPresenceUpdateData {
   return {
-    activities: [toActivityUpdate(activity)],
+    activities: [{ name: CUSTOM_STATUS_NAME, state: quip, type: ActivityType.Custom }],
     afk: false,
     since: null,
     status: PresenceUpdateStatus.Online,
   };
 }
 
-export { type BotActivity, pickActivity, toPresence };
+export { pickQuip, toPresence };
