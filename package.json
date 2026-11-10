@@ -13,7 +13,8 @@
     "format:check": "oxfmt --check --config oxfmt.config.ts .",
     "lint": "turbo run build && oxlint --config oxlint.config.ts .",
     "lint:ci": "oxlint --config oxlint.config.ts .",
-    "lint:fix": "turbo run build && oxlint --config oxlint.config.ts --fix ."
+    "lint:fix": "turbo run build && oxlint --config oxlint.config.ts --fix .",
+    "types": "turbo run types"
   },
   "devDependencies": {
     "@bachman-dev/oxc-config": "0.4.0",

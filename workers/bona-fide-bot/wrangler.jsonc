@@ -1,0 +1,40 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "bona-fide-bot",
+  "compatibility_date": "2026-11-09",
+  "main": "./src/index.ts",
+  "workers_dev": false,
+  "preview_urls": false,
+  "observability": {
+    "enabled": true,
+  },
+  "secrets": {
+    "required": ["BASE_PATH", "DISCORD_APP_ID", "DISCORD_PUBLIC_KEY"],
+  },
+  "queues": {
+    "producers": [
+      {
+        "binding": "DISCORD_QUEUE",
+        "queue": "discord-message-queue",
+      },
+      {
+        "binding": "DEAD_LETTER_QUEUE",
+        "queue": "dead-letters",
+      },
+    ],
+  },
+  "previews": {
+    "queues": {
+      "producers": [
+        {
+          "binding": "DISCORD_QUEUE",
+          "queue": "preview-discord-message-queue",
+        },
+        {
+          "binding": "DEAD_LETTER_QUEUE",
+          "queue": "preview-dead-letters",
+        },
+      ],
+    },
+  },
+}

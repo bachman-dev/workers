@@ -16,6 +16,7 @@
     "drizzle-orm": "1.0.0-rc.5-ab785fc"
   },
   "devDependencies": {
+    "@types/node": "26.6.6",
     "drizzle-kit": "1.0.0-rc.5-ab785fc"
   }
 }
