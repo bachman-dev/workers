@@ -1,10 +1,10 @@
-import type { GatewayDispatchEvents } from "@bachman-dev/workers-shared/discord";
+import type { DispatchPayload, GatewayDispatchEvents } from "@bachman-dev/workers-shared/discord";
 
 import guildInvitesHandlers from "./guild-invites.ts";
 import guildsHandlers from "./guilds.ts";
 import logDispatch from "./log.ts";
 import sessionHandlers from "./session.ts";
-import type { DispatchContext, DispatchHandlers, DispatchPayload } from "./types.ts";
+import type { DispatchContext, DispatchHandlers } from "./types.ts";
 
 const handlers: DispatchHandlers = {
   ...sessionHandlers,
@@ -13,7 +13,8 @@ const handlers: DispatchHandlers = {
 };
 
 /**
- * Runs the handler registered for a dispatch event, or logs the event if nothing handles it.
+ * Runs the handler registered for a dispatch event, or logs the event if nothing handles it. Handlers run one at a
+ * time, in the order Discord sent the events.
  *
  * @param {DispatchPayload} payload - The dispatch payload.
  * @param {DispatchContext} context - The shard the event arrived on.
