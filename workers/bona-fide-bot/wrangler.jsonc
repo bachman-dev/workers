@@ -9,7 +9,7 @@
     "enabled": true,
   },
   "secrets": {
-    "required": ["BASE_PATH", "DISCORD_APP_ID", "DISCORD_PUBLIC_KEY"],
+    "required": ["BASE_PATH", "DISCORD_APP_ID", "DISCORD_APP_SECRET", "DISCORD_PUBLIC_KEY"],
   },
   "queues": {
     "producers": [
@@ -23,6 +23,24 @@
       },
     ],
   },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "GATEWAY",
+        "class_name": "DiscordGateway",
+      },
+    ],
+  },
+  "exports": {
+    "DiscordGateway": {
+      "type": "durable-object",
+      "storage": "sqlite",
+    },
+  },
+  "triggers": {
+    // Starts and reconciles Gateway shards; each shard's alarm keeps it connected between runs.
+    "crons": ["*/10 * * * *"],
+  },
   "previews": {
     "queues": {
       "producers": [
@@ -33,6 +51,14 @@
         {
           "binding": "DEAD_LETTER_QUEUE",
           "queue": "preview-dead-letters",
+        },
+      ],
+    },
+    "durable_objects": {
+      "bindings": [
+        {
+          "name": "GATEWAY",
+          "class_name": "DiscordGateway",
         },
       ],
     },
