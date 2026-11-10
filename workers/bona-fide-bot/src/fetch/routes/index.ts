@@ -13,7 +13,9 @@ import verifiedDiscordRequest from "../middleware/discord.ts";
 
 const index = new Hono<{ Bindings: Env }>();
 
-index.get("/", verifiedDiscordRequest, async (ctx) => {
+index.get("/", (ctx) => ctx.json({ success: true, message: "Point Discord to this URL for interactions" }));
+
+index.post("/", verifiedDiscordRequest, async (ctx) => {
   const interaction = await ctx.req.json<APIInteraction>();
   switch (interaction.type) {
     case InteractionType.Ping:
