@@ -29,7 +29,7 @@ import {
   SESSION_INVALIDATING_CLOSE_CODES,
 } from "./gateway/constants.ts";
 import { type DispatchContext, handleDispatch } from "./gateway/dispatch/index.ts";
-import { type BotActivity, pickActivity, toPresence } from "./gateway/presence.ts";
+import { pickQuip, toPresence } from "./gateway/presence.ts";
 import ShardStorage from "./gateway/storage.ts";
 import type {
   ConnectionPhase,
@@ -422,7 +422,7 @@ export default class DiscordGateway extends DurableObject<Env> {
       this.send({
         d: {
           intents: GATEWAY_INTENTS,
-          presence: toPresence(this.nextActivity()),
+          presence: toPresence(this.nextQuip()),
           properties: IDENTIFY_PROPERTIES,
           shard: [state.shardId, state.shardCount],
           token: this.env.DISCORD_APP_SECRET,
@@ -460,20 +460,20 @@ export default class DiscordGateway extends DurableObject<Env> {
   }
 
   /**
-   * Picks the next activity and records it as shown, so the cycle carries on across evictions and deploys.
+   * Picks the next quip and records it as shown, so the cycle carries on across evictions and deploys.
    *
-   * @returns {BotActivity} The activity to show.
+   * @returns {string} The quip to show as the custom status.
    */
-  private nextActivity(): BotActivity {
-    const pick = pickActivity(this.storage.getShownActivities());
+  private nextQuip(): string {
+    const pick = pickQuip(this.storage.getShownActivities());
     this.storage.recordShownActivity(pick.key, pick.startsCycle);
-    return pick.activity;
+    return pick.quip;
   }
 
   private rotateActivity(): void {
-    const activity = this.nextActivity();
-    this.send({ d: toPresence(activity), op: GatewayOpcodes.PresenceUpdate });
-    log("info", `[shard ${this.shardId}] Rotated activity`, activity);
+    const quip = this.nextQuip();
+    this.send({ d: toPresence(quip), op: GatewayOpcodes.PresenceUpdate });
+    log("info", `[shard ${this.shardId}] Rotated custom status`, { quip });
   }
 
   private async drainDispatches(): Promise<void> {
