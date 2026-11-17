@@ -1,3 +1,5 @@
+export type * from "./types.ts";
+
 export function log(level: "error" | "warn" | "info" = "info", ...items: unknown[]): void {
   console[level](items);
 }
