@@ -1,13 +1,4 @@
 export {
-  ComponentLimitError,
-  countComponents,
-  countTextLength,
-  MAX_TEXT_LENGTH_PER_MESSAGE,
-  MAX_TOTAL_COMPONENTS_PER_MESSAGE,
-  splitComponentsToMessages,
-  verifyDiscordRequest,
-} from "./util.ts";
-export {
   ActivityType,
   APIVersion,
   ApplicationCommandOptionType,
@@ -30,4 +21,7 @@ export {
 export type * from "discord-api-types/v10";
 export { CDN, makeURLSearchParams, REST } from "@discordjs/rest";
 
-export type * from "./types.ts";
+export type * from "./gateway.ts";
+export type * from "./interactions.ts";
+export type * from "./queue.ts";
+export * from "./util.ts";

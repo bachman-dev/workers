@@ -6,7 +6,7 @@ import {
 } from "discord-api-types/v10";
 
 import { stringToUInt8Array } from "../util/index.ts";
-import type { MessageBodyByFormat, MessageFormat, SplitComponentsResult } from "./types.ts";
+import type { MessageBodyByFormat, MessageFormat, SplitComponentsResult } from "./queue.ts";
 
 export const MAX_TOTAL_COMPONENTS_PER_MESSAGE = 40;
 export const MAX_TEXT_LENGTH_PER_MESSAGE = 4000;
