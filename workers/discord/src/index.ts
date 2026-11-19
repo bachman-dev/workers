@@ -1,6 +1,8 @@
 import type { MappedExportedHandler } from "@bachman-dev/workers-shared/cloudflare";
 import {
   APIVersion,
+  type DiscordCreateMessageQueueBody,
+  type DiscordExecuteWebhookQueueBody,
   type DiscordMessageQueueBody,
   type MessageBodyByFormat,
   type MessageFormat,
@@ -12,20 +14,33 @@ import { getDrizzle } from "./db/index.ts";
 import type { QueueBodyMap, QueueName } from "./types/cloudflare.ts";
 import { executeWebhook, sendMessage } from "./util.ts";
 
+/** A queued body that posts a new message. */
+type DiscordPostQueueBody = DiscordCreateMessageQueueBody | DiscordExecuteWebhookQueueBody;
+
+/**
+ * Tells posts apart from edits and deletes. Bodies queued before `op` existed have none, and are posts.
+ *
+ * @param {Message<DiscordMessageQueueBody>} message - A message from the batch.
+ * @returns {boolean} Whether the message posts a new message.
+ */
+function isPost(message: Message<DiscordMessageQueueBody>): message is Message<DiscordPostQueueBody> {
+  return message.body.op === undefined || message.body.op === "post";
+}
+
 /** Queued components bound for the same place with the same allowed mentions, which can share a message. */
 interface ComponentGroup {
   /** The first queued body in the group; every body in it differs only by its component. */
-  destination: DiscordMessageQueueBody;
-  messages: Message<DiscordMessageQueueBody>[];
+  destination: DiscordPostQueueBody;
+  messages: Message<DiscordPostQueueBody>[];
 }
 
 /**
  * Groups queued components by where they're sent and who they may ping, keeping each group in delivery order.
  *
- * @param {readonly Message<DiscordMessageQueueBody>[]} messages - The batch's messages.
+ * @param {readonly Message<DiscordPostQueueBody>[]} messages - The batch's posts.
  * @returns {ComponentGroup[]} The groups, in the order their first message arrived.
  */
-function groupByDestination(messages: readonly Message<DiscordMessageQueueBody>[]): ComponentGroup[] {
+function groupByDestination(messages: readonly Message<DiscordPostQueueBody>[]): ComponentGroup[] {
   const groups = new Map<string, ComponentGroup>();
   for (const message of messages) {
     const { component: _component, ...destination } = message.body;
@@ -84,9 +99,19 @@ export default {
 
     const rejectedMessages: unknown[] = [];
 
+    const posts: Message<DiscordPostQueueBody>[] = [];
+    for (const message of batch.messages) {
+      if (isPost(message)) {
+        posts.push(message);
+      } else {
+        // Edits and deletes aren't handled yet, so leave them on the queue
+        message.retry();
+      }
+    }
+
     // Rejected messages are already acked, so dead-letter them even if a later send fails and the batch is retried
     try {
-      for (const group of groupByDestination(batch.messages)) {
+      for (const group of groupByDestination(posts)) {
         const { destination } = group;
         switch (destination.format) {
           case "message": {

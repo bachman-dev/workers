@@ -36,21 +36,53 @@ export interface DiscordQueuedComponent {
   component: APIMessageTopLevelComponent;
   /** Who the message may ping; Discord parses every mention in the text if this is left out. */
   allowedMentions?: APIAllowedMentions;
+  /**
+   * Names the post so it can be edited or deleted later with an `edit` or `delete` body carrying the same ref. A ref'd
+   * post always gets its own message, and is posted only once even if it's delivered again.
+   */
+  ref?: string;
+  /** Starting version for a ref'd post; later edits and deletes must carry a higher one. Defaults to 0. */
+  version?: number;
 }
 
 /** A component a bot posts to a channel; the consumer authenticates as the bot looked up by `applicationId`. */
-export interface DiscordChannelMessageQueueBody extends DiscordQueuedComponent {
+export interface DiscordCreateMessageQueueBody extends DiscordQueuedComponent {
+  op?: "post";
   format: "message";
   applicationId: Snowflake;
   channelId: Snowflake;
 }
 
 /** A component sent by executing a webhook. */
-export interface DiscordWebhookMessageQueueBody extends DiscordQueuedComponent {
+export interface DiscordExecuteWebhookQueueBody extends DiscordQueuedComponent {
+  op?: "post";
   format: "webhook";
   webhookId: Snowflake;
   /** Query string options, e.g. `thread_id` or `with_components`. */
   query?: RESTPostAPIWebhookWithTokenQuery;
 }
 
-export type DiscordMessageQueueBody = DiscordChannelMessageQueueBody | DiscordWebhookMessageQueueBody;
+/** Replaces the component of the message posted with the same `ref`. */
+export interface DiscordEditMessageQueueBody {
+  op: "edit";
+  ref: string;
+  /** Must be higher than every earlier post or edit for this ref; an edit that's older than the message is skipped. */
+  version: number;
+  component: APIMessageTopLevelComponent;
+  /** Who the edited message may ping; Discord parses every mention in the text if this is left out. */
+  allowedMentions?: APIAllowedMentions;
+}
+
+/** Deletes the message posted with the same `ref`. */
+export interface DiscordDeleteMessageQueueBody {
+  op: "delete";
+  ref: string;
+  /** Must be higher than every earlier post or edit for this ref; an older delete is skipped. */
+  version: number;
+}
+
+export type DiscordMessageQueueBody =
+  | DiscordCreateMessageQueueBody
+  | DiscordExecuteWebhookQueueBody
+  | DiscordEditMessageQueueBody
+  | DiscordDeleteMessageQueueBody;
