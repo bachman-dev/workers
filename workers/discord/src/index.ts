@@ -61,14 +61,14 @@ function groupByDestination(messages: readonly Message<DiscordPostQueueBody>[]):
  *
  * @param {Format} format - Whether the group is sent as bot channel messages or webhook executions.
  * @param {ComponentGroup} group - The components to send.
- * @param {(body: MessageBodyByFormat[Format]) => Promise<void>} send - Sends one message body.
+ * @param {(body: MessageBodyByFormat[Format]) => Promise<unknown>} send - Sends one message body.
  * @param {unknown[]} rejectedMessages - Where to report components too large for any message.
  * @returns {Promise<void>} Resolves once every message is sent.
  */
 async function sendGroup<Format extends MessageFormat>(
   format: Format,
   group: ComponentGroup,
-  send: (body: MessageBodyByFormat[Format]) => Promise<void>,
+  send: (body: MessageBodyByFormat[Format]) => Promise<unknown>,
   rejectedMessages: unknown[],
 ): Promise<void> {
   const { allowedMentions } = group.destination;
