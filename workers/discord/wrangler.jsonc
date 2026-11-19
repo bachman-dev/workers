@@ -23,6 +23,8 @@
         "max_batch_size": 10,
         "max_batch_timeout": 5,
         "dead_letter_queue": "dead-letters",
+        "max_retries": 10,
+        "retry_delay": 15,
       },
     ],
     "producers": [
@@ -49,6 +51,8 @@
           "max_batch_size": 10,
           "max_batch_timeout": 5,
           "dead_letter_queue": "preview-dead-letters",
+          "max_retries": 10,
+          "retry_delay": 15,
         },
       ],
       "producers": [
