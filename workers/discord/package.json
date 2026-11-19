@@ -10,6 +10,7 @@
     "db:migrate": "wrangler d1 migrate",
     "deploy": "pnpm types && pnpm check && wrangler deploy",
     "test": "vitest run",
+    "test:live": "vitest run --mode live",
     "types": "wrangler types"
   },
   "dependencies": {
