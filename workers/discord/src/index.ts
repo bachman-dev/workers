@@ -1,21 +1,22 @@
 import type { MappedExportedHandler } from "@bachman-dev/workers-shared/cloudflare";
 import {
-  APIVersion,
-  type DiscordCreateMessageQueueBody,
-  type DiscordExecuteWebhookQueueBody,
+  type APIMessage,
   type DiscordMessageQueueBody,
   type MessageBodyByFormat,
   type MessageFormat,
-  REST,
   splitComponentsToMessages,
 } from "@bachman-dev/workers-shared/discord";
 
+import applyChange from "./changes.ts";
+import { type BatchContext, DiscordClients } from "./clients.ts";
 import { getDrizzle } from "./db/index.ts";
+import { messageRefs } from "./db/schema.ts";
 import type { QueueBodyMap, QueueName } from "./types/cloudflare.ts";
-import { executeWebhook, sendMessage } from "./util.ts";
+import type { DiscordChangeQueueBody, DiscordPostQueueBody } from "./types/queue.ts";
+import { discordNonce, executeWebhook, sendMessage } from "./util.ts";
 
-/** A queued body that posts a new message. */
-type DiscordPostQueueBody = DiscordCreateMessageQueueBody | DiscordExecuteWebhookQueueBody;
+/** Who posted a ref'd message, as saved in `message_refs`. */
+type MessageRefPoster = Pick<typeof messageRefs.$inferInsert, "applicationId" | "format" | "threadId" | "webhookId">;
 
 /**
  * Tells posts apart from edits and deletes. Bodies queued before `op` existed have none, and are posts.
@@ -25,6 +26,16 @@ type DiscordPostQueueBody = DiscordCreateMessageQueueBody | DiscordExecuteWebhoo
  */
 function isPost(message: Message<DiscordMessageQueueBody>): message is Message<DiscordPostQueueBody> {
   return message.body.op === undefined || message.body.op === "post";
+}
+
+/**
+ * Tells edits and deletes apart from posts.
+ *
+ * @param {Message<DiscordMessageQueueBody>} message - A message from the batch.
+ * @returns {boolean} Whether the message edits or deletes a ref'd post.
+ */
+function isChange(message: Message<DiscordMessageQueueBody>): message is Message<DiscordChangeQueueBody> {
+  return message.body.op === "edit" || message.body.op === "delete";
 }
 
 /** Queued components bound for the same place with the same allowed mentions, which can share a message. */
@@ -91,106 +102,220 @@ async function sendGroup<Format extends MessageFormat>(
   }
 }
 
+/**
+ * Sends a group of components without a ref, bundled into as few messages as possible.
+ *
+ * @param {ComponentGroup} group - The components to send.
+ * @param {BatchContext} context - The batch's clients and rejected messages.
+ * @returns {Promise<void>} Resolves once every message is sent or rejected.
+ */
+async function sendUnrefGroup(group: ComponentGroup, context: BatchContext): Promise<void> {
+  const { destination } = group;
+  const { clients, rejectedMessages } = context;
+  switch (destination.format) {
+    case "message": {
+      const rest = await clients.bot(destination.applicationId);
+      if (rest === undefined) {
+        for (const message of group.messages) {
+          // Acked since it's sent to the dead letter queue instead of being retried
+          rejectedMessages.push({ error: "DISCORD_APP_ID_NOT_FOUND", message });
+          message.ack();
+        }
+      } else {
+        await sendGroup("message", group, async (body) => await sendMessage(rest, destination, body), rejectedMessages);
+      }
+      break;
+    }
+    case "webhook": {
+      const rest = clients.webhook();
+      const webhookToken = await clients.webhookToken(destination.webhookId);
+      if (webhookToken === undefined) {
+        for (const message of group.messages) {
+          // Acked since it's sent to the dead letter queue instead of being retried
+          rejectedMessages.push({ error: "DISCORD_WEBHOOK_ID_NOT_FOUND", message });
+          message.ack();
+        }
+      } else {
+        await sendGroup(
+          "webhook",
+          group,
+          async (body) => await executeWebhook(rest, destination, webhookToken, body),
+          rejectedMessages,
+        );
+      }
+    }
+  }
+}
+
+/**
+ * Builds the message body for a ref'd post, which always gets a message of its own. Rejects the queued message if its
+ * component can't fit in any message.
+ *
+ * @param {Format} format - Whether the post is a bot channel message or a webhook execution.
+ * @param {Message<DiscordPostQueueBody>} message - The queued post.
+ * @param {unknown[]} rejectedMessages - Where to report a component too large for any message.
+ * @returns {MessageBodyByFormat[Format] | undefined} The body, or `undefined` if the message was rejected.
+ */
+function refPostBody<Format extends MessageFormat>(
+  format: Format,
+  message: Message<DiscordPostQueueBody>,
+  rejectedMessages: unknown[],
+): MessageBodyByFormat[Format] | undefined {
+  const results = splitComponentsToMessages(format, [message.body.component]);
+  const [body] = results.messages;
+  if (body === undefined) {
+    // Acked since it's sent to the dead letter queue instead of being retried
+    rejectedMessages.push({ error: "DISCORD_COMPONENT_TOO_BIG", reason: results.errors[0]?.message, message });
+    message.ack();
+    return undefined;
+  }
+  const { allowedMentions } = message.body;
+  return allowedMentions === undefined ? body : { ...body, allowed_mentions: allowedMentions };
+}
+
+/**
+ * Posts a ref'd component as its own message, unless the ref was already posted, and saves where it landed so later
+ * edits and deletes can find it.
+ *
+ * @param {Message<DiscordPostQueueBody>} message - The queued post.
+ * @param {string} ref - The post's ref.
+ * @param {BatchContext} context - The batch's database, clients and rejected messages.
+ * @returns {Promise<void>} Resolves once the message is posted and saved, skipped, or rejected.
+ */
+async function sendRefPost(message: Message<DiscordPostQueueBody>, ref: string, context: BatchContext): Promise<void> {
+  const { body: queued } = message;
+  const { clients, drizzle, rejectedMessages } = context;
+
+  const existing = await drizzle.query.messageRefs.findFirst({ columns: { ref: true }, where: { ref: { eq: ref } } });
+  if (existing !== undefined) {
+    // Already posted, e.g. this is a redelivery
+    message.ack();
+    return;
+  }
+
+  let sent: APIMessage | undefined = undefined;
+  let poster: MessageRefPoster;
+  switch (queued.format) {
+    case "message": {
+      const rest = await clients.bot(queued.applicationId);
+      if (rest === undefined) {
+        // Acked since it's sent to the dead letter queue instead of being retried
+        rejectedMessages.push({ error: "DISCORD_APP_ID_NOT_FOUND", message });
+        message.ack();
+        return;
+      }
+      const body = refPostBody("message", message, rejectedMessages);
+      if (body === undefined) {
+        return;
+      }
+      // Discord returns the first message instead of posting again if a resend lands within a few minutes
+      sent = await sendMessage(rest, queued, { ...body, nonce: await discordNonce(ref), enforce_nonce: true });
+      poster = { format: "message", applicationId: queued.applicationId };
+      break;
+    }
+    case "webhook": {
+      const webhookToken = await clients.webhookToken(queued.webhookId);
+      if (webhookToken === undefined) {
+        // Acked since it's sent to the dead letter queue instead of being retried
+        rejectedMessages.push({ error: "DISCORD_WEBHOOK_ID_NOT_FOUND", message });
+        message.ack();
+        return;
+      }
+      const body = refPostBody("webhook", message, rejectedMessages);
+      if (body === undefined) {
+        return;
+      }
+      sent = await executeWebhook(clients.webhook(), queued, webhookToken, body);
+      poster = { format: "webhook", webhookId: queued.webhookId, threadId: queued.query?.thread_id ?? null };
+      break;
+    }
+  }
+  if (sent === undefined) {
+    throw new Error(`Discord didn't return the message posted for ref ${ref}`);
+  }
+
+  const now = Date.now();
+  await drizzle
+    .insert(messageRefs)
+    .values({
+      ref,
+      ...poster,
+      channelId: sent.channel_id,
+      messageId: sent.id,
+      version: queued.version ?? 0,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .onConflictDoNothing();
+  message.ack();
+}
+
+/**
+ * Sends a batch's posts in order. Components without a ref that share a destination are bundled into as few messages as
+ * possible; each ref'd post gets its own message.
+ *
+ * @param {readonly Message<DiscordPostQueueBody>[]} posts - The batch's posts.
+ * @param {BatchContext} context - The batch's database, clients and rejected messages.
+ * @returns {Promise<void>} Resolves once every post is sent, skipped, or rejected.
+ */
+async function sendPosts(posts: readonly Message<DiscordPostQueueBody>[], context: BatchContext): Promise<void> {
+  for (const group of groupByDestination(posts)) {
+    const { ref } = group.destination;
+    if (ref === undefined) {
+      // oxlint-disable-next-line no-await-in-loop -- Must be in order
+      await sendUnrefGroup(group, context);
+    } else {
+      // The ref is part of the group's key, so every message here shares it; only the first can post
+      for (const message of group.messages) {
+        // oxlint-disable-next-line no-await-in-loop -- Must be in order
+        await sendRefPost(message, ref, context);
+      }
+    }
+  }
+}
+
 export default {
   queue: async (batch, env): Promise<void> => {
-    const restMap = new Map<string, REST>();
-    const webhookTokenMap = new Map<string, string>();
     const drizzle = getDrizzle(env.DB);
-
-    const rejectedMessages: unknown[] = [];
+    const context: BatchContext = { drizzle, clients: new DiscordClients(drizzle), rejectedMessages: [] };
 
     const posts: Message<DiscordPostQueueBody>[] = [];
+    const changes: Message<DiscordChangeQueueBody>[] = [];
     for (const message of batch.messages) {
       if (isPost(message)) {
         posts.push(message);
+      } else if (isChange(message)) {
+        changes.push(message);
       } else {
-        // Edits and deletes aren't handled yet, so leave them on the queue
-        message.retry();
+        // Acked since it's sent to the dead letter queue instead of being retried
+        context.rejectedMessages.push({ error: "DISCORD_QUEUE_OP_UNKNOWN", message });
+        message.ack();
       }
     }
 
     // Rejected messages are already acked, so dead-letter them even if a later send fails and the batch is retried
     try {
-      for (const group of groupByDestination(posts)) {
-        const { destination } = group;
-        switch (destination.format) {
-          case "message": {
-            let rest = restMap.get(destination.applicationId);
-            if (typeof rest === "undefined") {
-              // oxlint-disable-next-line no-await-in-loop -- Must be in order
-              const app = await drizzle.query.apps.findFirst({
-                where: {
-                  id: {
-                    eq: destination.applicationId,
-                  },
-                },
-              });
-              if (typeof app !== "undefined") {
-                rest = new REST({ version: APIVersion });
-                rest.setToken(app.token);
-                restMap.set(destination.applicationId, rest);
-              }
-            }
-            if (typeof rest === "undefined") {
-              for (const message of group.messages) {
-                // Acked since it's sent to the dead letter queue instead of being retried
-                rejectedMessages.push({ error: "DISCORD_APP_ID_NOT_FOUND", message });
-                message.ack();
-              }
-            } else {
-              // oxlint-disable-next-line no-await-in-loop -- Must be in order
-              await sendGroup(
-                "message",
-                group,
-                async (body) => await sendMessage(rest, destination, body),
-                rejectedMessages,
-              );
-            }
-            break;
-          }
-          case "webhook": {
-            let rest = restMap.get("webhook");
-            if (typeof rest === "undefined") {
-              rest = new REST({ version: APIVersion });
-              restMap.set("webhook", rest);
-            }
-            let webhookToken = webhookTokenMap.get(destination.webhookId);
-            if (typeof webhookToken === "undefined") {
-              // oxlint-disable-next-line no-await-in-loop -- Must be in order
-              const webhook = await drizzle.query.webhooks.findFirst({
-                where: {
-                  id: {
-                    eq: destination.webhookId,
-                  },
-                },
-              });
-              if (typeof webhook !== "undefined") {
-                webhookToken = webhook.token;
-                webhookTokenMap.set(destination.webhookId, webhook.token);
-              }
-            }
-            if (typeof webhookToken === "undefined") {
-              for (const message of group.messages) {
-                // Acked since it's sent to the dead letter queue instead of being retried
-                rejectedMessages.push({ error: "DISCORD_WEBHOOK_ID_NOT_FOUND", message });
-                message.ack();
-              }
-            } else {
-              // oxlint-disable-next-line no-await-in-loop -- Must be in order
-              await sendGroup(
-                "webhook",
-                group,
-                async (body) => await executeWebhook(rest, destination, webhookToken, body),
-                rejectedMessages,
-              );
-            }
-          }
-        }
+      // Posts go first, so a post and an edit to it in the same batch land in order. A failed post retries the posts
+      // that weren't acked, but only once the batch's edits and deletes have had their turn.
+      let postsFailed = false;
+      let postError: unknown = undefined;
+      try {
+        await sendPosts(posts, context);
+      } catch (error) {
+        postsFailed = true;
+        postError = error;
+      }
+      for (const message of changes) {
+        // oxlint-disable-next-line no-await-in-loop -- Must be in order
+        await applyChange(message, context);
+      }
+      if (postsFailed) {
+        throw postError;
       }
     } finally {
-      if (rejectedMessages.length > 0) {
+      if (context.rejectedMessages.length > 0) {
         await env.DEAD_LETTER_QUEUE.sendBatch(
-          rejectedMessages.map((message) => {
+          context.rejectedMessages.map((message) => {
             return {
               body: message,
               contentType: "json",

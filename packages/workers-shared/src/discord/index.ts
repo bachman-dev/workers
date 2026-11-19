@@ -14,6 +14,7 @@ export {
   InteractionType,
   MessageFlags,
   PresenceUpdateStatus,
+  RESTJSONErrorCodes,
   Routes,
   SeparatorSpacingSize,
   Utils,
