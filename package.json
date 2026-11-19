@@ -14,6 +14,7 @@
     "lint": "turbo run build && oxlint --config oxlint.config.ts .",
     "lint:ci": "oxlint --config oxlint.config.ts .",
     "lint:fix": "turbo run build && oxlint --config oxlint.config.ts --fix .",
+    "test": "turbo run test",
     "types": "turbo run types"
   },
   "devDependencies": {
