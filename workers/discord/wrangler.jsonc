@@ -23,6 +23,11 @@
         "max_batch_size": 10,
         "max_batch_timeout": 5,
         "dead_letter_queue": "dead-letters",
+        "max_retries": 10,
+        "retry_delay": 15,
+        // One batch at a time: edits and deletes check the stored version before calling Discord, so two batches
+        // running at once could land an older edit after a newer one.
+        "max_concurrency": 1,
       },
     ],
     "producers": [
@@ -49,6 +54,11 @@
           "max_batch_size": 10,
           "max_batch_timeout": 5,
           "dead_letter_queue": "preview-dead-letters",
+          "max_retries": 10,
+          "retry_delay": 15,
+          // One batch at a time: edits and deletes check the stored version before calling Discord, so two batches
+          // running at once could land an older edit after a newer one.
+          "max_concurrency": 1,
         },
       ],
       "producers": [

@@ -1,10 +1,11 @@
 import { defineRelations } from "drizzle-orm";
 
-import { apps, webhooks } from "./schema.ts";
+import { apps, messageRefs, webhooks } from "./schema.ts";
 
-const relations = defineRelations({ apps, webhooks }, () => {
+const relations = defineRelations({ apps, messageRefs, webhooks }, () => {
   return {
     apps: {},
+    messageRefs: {},
     webhooks: {},
   };
 });

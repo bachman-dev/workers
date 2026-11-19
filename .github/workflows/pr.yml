@@ -24,6 +24,8 @@ jobs:
           require-lockfile: true
       - name: Build Package
         run: pnpm build
+      - name: Test Package
+        run: pnpm test
       - name: Check Formatting
         run: pnpm format:check
       - name: Lint Code

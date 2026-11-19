@@ -19,6 +19,9 @@
       "cache": false,
       "persistent": true
     },
+    "test": {
+      "dependsOn": ["^build"]
+    },
     "types": { "dependsOn": ["^types"], "outputs": ["./worker-configuration.d.ts"] }
   }
 }
