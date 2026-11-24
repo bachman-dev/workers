@@ -1,0 +1,24 @@
+import { runInDurableObject } from "cloudflare:test";
+import { describe, expect, it, vi } from "vitest";
+
+import Screener from "../src/durable/screener.ts";
+import worker from "../src/index.ts";
+import { screenerStub } from "./env.ts";
+
+vi.setConfig({ testTimeout: 10_000 });
+
+describe("mail-screener", () => {
+  it("loads with an email handler", () => {
+    expect.hasAssertions();
+
+    expect(worker.email).toBeTypeOf("function");
+  });
+
+  it("runs the Screener Durable Object in the pool", async () => {
+    expect.hasAssertions();
+    const stub = screenerStub();
+
+    await expect(stub.listOpen()).resolves.toStrictEqual([]);
+    await expect(runInDurableObject(stub, (instance) => instance instanceof Screener)).resolves.toBe(true);
+  });
+});

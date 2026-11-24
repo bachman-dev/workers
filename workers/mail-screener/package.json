@@ -1,0 +1,17 @@
+{
+  "name": "mail-screener",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "build": "wrangler deploy --dry-run --outdir dist",
+    "check": "tsc --noEmit && tsc --noEmit -p tests",
+    "deploy": "pnpm types && pnpm check && wrangler deploy",
+    "test": "vitest run",
+    "types": "wrangler types"
+  },
+  "dependencies": {
+    "@bachman-dev/workers-shared": "workspace:*",
+    "tldts": "7.5.5"
+  }
+}
