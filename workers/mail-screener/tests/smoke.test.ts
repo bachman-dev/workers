@@ -18,7 +18,7 @@ describe("mail-screener", () => {
     expect.hasAssertions();
     const stub = screenerStub();
 
-    await expect(stub.ping()).resolves.toBe("ok");
+    await expect(stub.listOpen()).resolves.toStrictEqual([]);
     await expect(runInDurableObject(stub, (instance) => instance instanceof Screener)).resolves.toBe(true);
   });
 });
