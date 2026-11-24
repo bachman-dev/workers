@@ -1,9 +1,11 @@
+import type { APIContainerComponent } from "@bachman-dev/workers-shared/discord";
 import { log } from "@bachman-dev/workers-shared/util";
+import { WorkerEntrypoint } from "cloudflare:workers";
 
 import { decide, parseSender } from "./decide.ts";
 import { decodeHeaderText } from "./mime.ts";
 import type { Env } from "./types/cloudflare.ts";
-import type { Decision, Sender } from "./types/screener.ts";
+import type { Decision, ReviewAction, Sender } from "./types/screener.ts";
 
 /** How a forwarded message is tagged in its `X-Screener` header, for the inbox's filters. */
 type ScreenerTag = "known" | "unknown" | "error";
@@ -93,6 +95,24 @@ async function review(message: ForwardableEmailMessage, env: Env, sender: Sender
     await screener(env).openReview(sender, subject);
   } catch (error) {
     log("error", "Couldn't open or update the review for an unknown sender", error);
+  }
+}
+
+/**
+ * What other workers call over a service binding. bona-fide-bot binds it to answer review buttons, with `{ "binding":
+ * "SCREENER", "service": "mail-screener", "entrypoint": "ScreenerService" }`.
+ */
+export class ScreenerService extends WorkerEntrypoint<Env> {
+  /**
+   * Decides a review, as its card's buttons do.
+   *
+   * @param {string} reviewId - The review's ID, from the button's custom ID.
+   * @param {ReviewAction} action - The action, from the button's custom ID.
+   * @returns {Promise<APIContainerComponent | null>} The closed card to update the message with, or `null` if there's
+   *   no such review.
+   */
+  public async decide(reviewId: string, action: ReviewAction): Promise<APIContainerComponent | null> {
+    return await screener(this.env).decide(reviewId, action);
   }
 }
 

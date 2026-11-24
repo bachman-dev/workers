@@ -316,12 +316,13 @@ export default class ScreenerStorage {
   }
 
   /**
-   * Deletes a review, e.g. one whose first card couldn't be queued.
+   * Deletes a new review whose first card couldn't be queued, unless another message already bumped it, so the sender's
+   * next message opens it again and posts the card.
    *
    * @param {string} reviewId - The review's ID.
    */
-  public deleteReview(reviewId: string): void {
-    this.#storage.sql.exec("DELETE FROM reviews WHERE id = ?", reviewId);
+  public discardUnpostedReview(reviewId: string): void {
+    this.#storage.sql.exec("DELETE FROM reviews WHERE id = ? AND card_version = 1 AND status = 'open'", reviewId);
   }
 
   /**

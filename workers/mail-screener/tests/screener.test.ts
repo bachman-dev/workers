@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { screenerStub } from "./env.ts";
 import makeSender from "./fixtures.ts";
+import { captureQueue, failQueue } from "./queue.ts";
 
 vi.setConfig({ testTimeout: 10_000 });
 
@@ -67,11 +68,12 @@ describe("sender rules", () => {
 describe("reviews", () => {
   it("bumps the count on a second message from the same unknown sender instead of opening a new review", async () => {
     expect.hasAssertions();
+    captureQueue();
     const sender = makeSender("stranger@example.com", { name: "A Stranger", dmarc: "fail" });
 
-    await runInDurableObject(screenerStub(), (screener) => {
-      const first = screener.openReview(sender, "Hello");
-      const second = screener.openReview(sender, "Hello again");
+    await runInDurableObject(screenerStub(), async (screener) => {
+      const first = await screener.openReview(sender, "Hello");
+      const second = await screener.openReview(sender, "Hello again");
 
       expect(first).toMatchObject({
         created: true,
@@ -98,9 +100,10 @@ describe("reviews", () => {
 
   it("keeps the first 200 characters of the subject", async () => {
     expect.hasAssertions();
+    captureQueue();
 
-    await runInDurableObject(screenerStub(), (screener) => {
-      const { review } = screener.openReview(makeSender("a@example.com"), "x".repeat(300));
+    await runInDurableObject(screenerStub(), async (screener) => {
+      const { review } = await screener.openReview(makeSender("a@example.com"), "x".repeat(300));
 
       expect(review.subject).toHaveLength(200);
     });
@@ -108,14 +111,13 @@ describe("reviews", () => {
 
   it("adds the action's rule and closes the review", async () => {
     expect.hasAssertions();
+    captureQueue();
 
-    await runInDurableObject(screenerStub(), (screener) => {
-      const { review } = screener.openReview(makeSender("orders@shop.example.co.uk"), "Your order");
+    await runInDurableObject(screenerStub(), async (screener) => {
+      const { review } = await screener.openReview(makeSender("orders@shop.example.co.uk"), "Your order");
 
-      const decided = screener.decide(review.id, "block_org");
+      await screener.decide(review.id, "block_org");
 
-      expect(decided).toMatchObject({ status: "blocked", decision: "block_org", cardVersion: 2 });
-      expect(decided?.decidedAt).toBeTypeOf("number");
       expect(screener.listSenders()).toMatchObject([
         { kind: "org", pattern: "example.co.uk", list: "deny", addedVia: "discord", note: `Review ${review.id}` },
       ]);
@@ -126,28 +128,32 @@ describe("reviews", () => {
 
   it("changes nothing when a review is decided twice", async () => {
     expect.hasAssertions();
+    const queued = captureQueue();
 
-    await runInDurableObject(screenerStub(), (screener) => {
-      const { review } = screener.openReview(makeSender("jane@example.com"), "Hi");
+    await runInDurableObject(screenerStub(), async (screener) => {
+      const { review } = await screener.openReview(makeSender("jane@example.com"), "Hi");
 
-      const first = screener.decide(review.id, "allow_sender");
+      const first = await screener.decide(review.id, "allow_sender");
       const rules = screener.listSenders();
-      const second = screener.decide(review.id, "block_org");
+      const sends = queued.length;
+      const second = await screener.decide(review.id, "block_org");
 
-      expect(first).toMatchObject({ status: "allowed", decision: "allow_sender" });
+      expect(first).not.toBeNull();
       expect(second).toStrictEqual(first);
       expect(screener.listSenders()).toStrictEqual(rules);
+      expect(queued).toHaveLength(sends);
     });
   });
 
   it("opens a new review once the sender's last one is closed", async () => {
     expect.hasAssertions();
+    captureQueue();
     const sender = makeSender("jane@example.com");
 
-    await runInDurableObject(screenerStub(), (screener) => {
-      const first = screener.openReview(sender, "Hi");
-      screener.decide(first.review.id, "dismiss");
-      const second = screener.openReview(sender, "Hi again");
+    await runInDurableObject(screenerStub(), async (screener) => {
+      const first = await screener.openReview(sender, "Hi");
+      await screener.decide(first.review.id, "dismiss");
+      const second = await screener.openReview(sender, "Hi again");
 
       expect(screener.listSenders()).toStrictEqual([]);
       expect(second.created).toBe(true);
@@ -157,13 +163,23 @@ describe("reviews", () => {
 
   it("won't add a domain rule for free mail", async () => {
     expect.hasAssertions();
+    captureQueue();
 
-    await runInDurableObject(screenerStub(), (screener) => {
-      const { review } = screener.openReview(makeSender("someone@gmail.com"), "Hi");
+    await runInDurableObject(screenerStub(), async (screener) => {
+      const { review } = await screener.openReview(makeSender("someone@gmail.com"), "Hi");
 
-      expect(() => screener.decide(review.id, "allow_org")).toThrow(TypeError);
+      await expect(screener.decide(review.id, "allow_org")).rejects.toThrow(TypeError);
       expect(screener.listOpen()).toHaveLength(1);
       expect(screener.listSenders()).toStrictEqual([]);
+    });
+  });
+
+  it("refuses an unknown action", async () => {
+    expect.hasAssertions();
+
+    await runInDurableObject(screenerStub(), async (screener) => {
+      // @ts-expect-error -- An RPC caller could send anything
+      await expect(screener.decide("01ARZ3NDEKTSV4RRFFQ69G5FAV", "allow_everyone")).rejects.toThrow(TypeError);
     });
   });
 
@@ -171,5 +187,35 @@ describe("reviews", () => {
     expect.hasAssertions();
 
     await expect(screenerStub().decide("01ARZ3NDEKTSV4RRFFQ69G5FAV", "dismiss")).resolves.toBeNull();
+  });
+
+  it("discards a new review whose card couldn't be queued, so the next message opens it again", async () => {
+    expect.hasAssertions();
+    const sender = makeSender("jane@example.com");
+    failQueue();
+
+    await runInDurableObject(screenerStub(), async (screener) => {
+      await expect(screener.openReview(sender, "Hi")).rejects.toThrow("Queue is down");
+      expect(screener.listOpen()).toStrictEqual([]);
+
+      captureQueue();
+      const opened = await screener.openReview(sender, "Hi");
+
+      expect(opened).toMatchObject({ created: true, review: { count: 1, cardVersion: 1 } });
+    });
+  });
+
+  it("keeps a decision when its card couldn't be queued", async () => {
+    expect.hasAssertions();
+    captureQueue();
+
+    await runInDurableObject(screenerStub(), async (screener) => {
+      const { review } = await screener.openReview(makeSender("jane@example.com"), "Hi");
+      failQueue();
+
+      await expect(screener.decide(review.id, "allow_sender")).resolves.not.toBeNull();
+      expect(screener.listOpen()).toStrictEqual([]);
+      expect(screener.listSenders()).toHaveLength(1);
+    });
   });
 });

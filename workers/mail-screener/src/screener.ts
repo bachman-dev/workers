@@ -1,5 +1,8 @@
+import type { APIContainerComponent } from "@bachman-dev/workers-shared/discord";
+import { log } from "@bachman-dev/workers-shared/util";
 import { DurableObject } from "cloudflare:workers";
 
+import { buildCard, cardEdit, cardPost } from "./card.ts";
 import { decide, isFreeMail, normalizePattern, orgDomain } from "./decide.ts";
 import { truncate } from "./mime.ts";
 import ScreenerStorage from "./storage.ts";
@@ -133,15 +136,17 @@ export default class Screener extends DurableObject<Env> {
   }
 
   /**
-   * Opens a review for mail from an unknown sender, or counts another message on the sender's open review and raises
-   * its card version.
+   * Opens a review for mail from an unknown sender and queues its card, or counts another message on the sender's open
+   * review and queues the updated card at a higher version.
    *
    * @param {Sender} sender - The sender.
    * @param {string} subject - The message's decoded subject; only the first message's is kept.
-   * @returns {OpenedReview} The review, and whether this message opened it.
+   * @returns {Promise<OpenedReview>} The review, and whether this message opened it.
+   * @throws {Error} If the card couldn't be queued. A new review is discarded then, so the next message retries it.
    */
-  public openReview(sender: Sender, subject: string): OpenedReview {
-    return this.storage.transaction(() => {
+  public async openReview(sender: Sender, subject: string): Promise<OpenedReview> {
+    // Storage calls are synchronous, so no other message can open a second review for this sender in between
+    const opened = this.storage.transaction((): OpenedReview => {
       const open = this.storage.getOpenReview(sender.address);
       if (open !== null) {
         return { review: this.storage.bumpReview(open.id), created: false };
@@ -163,24 +168,39 @@ export default class Screener extends DurableObject<Env> {
       this.storage.insertReview(review);
       return { review, created: true };
     });
+
+    const { review, created } = opened;
+    try {
+      await this.env.DISCORD_QUEUE.send(created ? cardPost(review, this.env) : cardEdit(review), {
+        contentType: "json",
+      });
+    } catch (error) {
+      if (created) {
+        this.storage.discardUnpostedReview(review.id);
+      }
+      throw error;
+    }
+    return opened;
   }
 
   /**
-   * Decides an open review: adds the action's rule (marked as added from Discord) and closes the review. Deciding a
-   * review that's already closed changes nothing.
+   * Decides an open review: adds the action's rule (marked as added from Discord), closes the review, and queues the
+   * closed card as an edit at a higher version. Deciding a review that's already closed changes nothing and returns the
+   * same card.
    *
    * @param {string} reviewId - The review's ID.
    * @param {ReviewAction} action - What to do.
-   * @returns {Review | null} The closed review, or `null` if there's no review with that ID.
+   * @returns {Promise<APIContainerComponent | null>} The closed card, which the bot can answer the button press with,
+   *   or `null` if there's no review with that ID.
    */
-  public decide(reviewId: string, action: ReviewAction): Review | null {
+  public async decide(reviewId: string, action: ReviewAction): Promise<APIContainerComponent | null> {
     if (!isReviewAction(action)) {
       throw new TypeError(`Unknown review action: ${String(action)}`);
     }
-    return this.storage.transaction(() => {
+    const decided = this.storage.transaction((): { review: Review | null; changed: boolean } => {
       const review = this.storage.getReview(reviewId);
       if (review?.status !== "open") {
-        return review;
+        return { review, changed: false };
       }
       const effect = ACTION_EFFECTS[action];
       if (effect.rule !== null) {
@@ -190,8 +210,22 @@ export default class Screener extends DurableObject<Env> {
         }
         this.addSender({ ...effect.rule, pattern, note: `Review ${review.id}`, addedVia: "discord" });
       }
-      return this.storage.closeReview(review.id, effect.status, action, Date.now());
+      return { review: this.storage.closeReview(review.id, effect.status, action, Date.now()), changed: true };
     });
+
+    const { review, changed } = decided;
+    if (review === null) {
+      return null;
+    }
+    if (changed) {
+      try {
+        await this.env.DISCORD_QUEUE.send(cardEdit(review), { contentType: "json" });
+      } catch (error) {
+        // The decision stands, and the bot updates the card itself with what this returns
+        log("error", `Couldn't queue the closed card for review ${review.id}`, error);
+      }
+    }
+    return buildCard(review);
   }
 
   /**
