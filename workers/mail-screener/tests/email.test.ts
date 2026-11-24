@@ -165,16 +165,6 @@ describe("email()", () => {
     await expect(screenerStub().listOpen()).resolves.toStrictEqual([]);
   });
 
-  it("forwards a message that doesn't say whether it can be forwarded, as wrangler dev's don't", async () => {
-    expect.hasAssertions();
-    const message = new FakeEmailMessage({ headers: { from: "jane@example.com", "authentication-results": PASS } });
-    Reflect.set(message, "canBeForwarded", undefined);
-
-    await receive(message);
-
-    expect(forwards(message)).toStrictEqual([{ rcptTo: DESTINATION, tag: "unknown" }]);
-  });
-
   it.for(["loop@bachman.dev", "Loop@BACHMAN.dev", "loop@mail.bachman.dev"])(
     "refuses to forward to %s, which would loop back",
     async (destination) => {

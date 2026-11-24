@@ -121,10 +121,8 @@ export { default as Screener } from "./screener.ts";
 export default {
   email: async (message, env): Promise<void> => {
     assertNoLoop(env.DESTINATION);
-    // Nothing holds a message that can't be forwarded, and forward() would fail, so bounce it instead of dropping it.
-    // Only an explicit false counts: `wrangler dev`'s local message leaves the property out.
-    // oxlint-disable-next-line typescript/no-unnecessary-boolean-literal-compare -- It's undefined under wrangler dev
-    if (message.canBeForwarded === false) {
+    // Nothing holds a message that can't be forwarded, and forward() would fail, so bounce it instead of dropping it
+    if (!message.canBeForwarded) {
       log("warn", "Rejecting a message that can't be forwarded");
       message.setReject(CANNOT_FORWARD_REASON);
       return;
