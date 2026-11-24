@@ -245,6 +245,22 @@ importers:
         specifier: 5.1.1
         version: 5.1.1(@types/node@26.6.6)(vite@8.3.8(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0))
 
+  workers/mail-screener:
+    dependencies:
+      '@bachman-dev/workers-shared':
+        specifier: workspace:*
+        version: link:../../packages/workers-shared
+    devDependencies:
+      '@cloudflare/vitest-plugin':
+        specifier: 1.8.3
+        version: 1.8.3(@cloudflare/workers-types@5.20261121.1)(@types/node@26.6.6)(vitest@5.1.1(@types/node@26.6.6)(vite@8.3.8(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)))
+      vitest:
+        specifier: 5.1.1
+        version: 5.1.1(@types/node@26.6.6)(vite@8.3.8(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0))
+      wrangler:
+        specifier: 4.163.0
+        version: 4.163.0(@cloudflare/workers-types@5.20261121.1)(@types/node@26.6.6)
+
   workers/webhooks:
     dependencies:
       '@bachman-dev/workers-shared':
