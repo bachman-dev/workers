@@ -29,6 +29,12 @@ interface ActionEffect {
 
 /** The longest subject a review keeps. */
 const MAX_SUBJECT_LENGTH = 200;
+const DAY_MS = 86_400_000;
+/** How many days a review stays open without a decision before it's dismissed. */
+const REVIEW_EXPIRY_DAYS = 14;
+const REVIEW_EXPIRY_MS = REVIEW_EXPIRY_DAYS * DAY_MS;
+/** How many closed cards go in one queue batch; Discord's queue takes 100 messages and 256 KB a batch. */
+const EXPIRY_BATCH_SIZE = 50;
 
 const ACTION_EFFECTS: Readonly<Record<ReviewAction, ActionEffect>> = {
   allow_sender: { rule: { kind: "address", list: "allow" }, status: "allowed" },
@@ -170,6 +176,9 @@ export default class Screener extends DurableObject<Env> {
     });
 
     const { review, created } = opened;
+    if (created && (await this.ctx.storage.getAlarm()) === null) {
+      await this.ctx.storage.setAlarm(Date.now() + DAY_MS);
+    }
     try {
       await this.env.DISCORD_QUEUE.send(created ? cardPost(review, this.env) : cardEdit(review), {
         contentType: "json",
@@ -226,6 +235,41 @@ export default class Screener extends DurableObject<Env> {
       }
     }
     return buildCard(review);
+  }
+
+  /**
+   * Runs daily while reviews are open: dismisses every review open for 14 days or more and queues each closed card as
+   * an edit at a higher version, then re-arms itself if any reviews are still open.
+   *
+   * @returns {Promise<void>} Resolves once expired reviews are closed and their cards queued.
+   */
+  public override async alarm(): Promise<void> {
+    const now = Date.now();
+    const expired = this.storage.transaction(() =>
+      this.storage
+        .listOpenReviews(now - REVIEW_EXPIRY_MS)
+        .flatMap((review) => this.storage.closeReview(review.id, "dismissed", "expire", now) ?? []),
+    );
+    for (let start = 0; start < expired.length; start += EXPIRY_BATCH_SIZE) {
+      const batch = expired.slice(start, start + EXPIRY_BATCH_SIZE);
+      try {
+        // oxlint-disable-next-line no-await-in-loop -- Batches are sent in order
+        await this.env.DISCORD_QUEUE.sendBatch(
+          batch.map((review) => {
+            return { body: cardEdit(review), contentType: "json" };
+          }),
+        );
+      } catch (error) {
+        // The reviews stay dismissed; a button press on a stale card still gets the closed card from decide()
+        log("error", `Couldn't queue ${batch.length} expired review cards`, error);
+      }
+    }
+    if (expired.length > 0) {
+      log("info", `Dismissed ${expired.length} reviews open for ${REVIEW_EXPIRY_DAYS} days or more`);
+    }
+    if (this.storage.listOpenReviews().length > 0) {
+      await this.ctx.storage.setAlarm(now + DAY_MS);
+    }
   }
 
   /**
