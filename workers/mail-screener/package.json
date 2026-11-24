@@ -13,10 +13,5 @@
   "dependencies": {
     "@bachman-dev/workers-shared": "workspace:*",
     "tldts": "7.5.5"
-  },
-  "devDependencies": {
-    "@cloudflare/vitest-plugin": "1.8.3",
-    "vitest": "5.1.1",
-    "wrangler": "4.163.0"
   }
 }

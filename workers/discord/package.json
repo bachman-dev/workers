@@ -18,10 +18,8 @@
     "drizzle-orm": "1.0.0-rc.5-ab785fc"
   },
   "devDependencies": {
-    "@cloudflare/vitest-plugin": "1.8.3",
     "@discordjs/rest": "2.6.3",
     "@types/node": "26.6.6",
-    "drizzle-kit": "1.0.0-rc.5-ab785fc",
-    "vitest": "5.1.1"
+    "drizzle-kit": "1.0.0-rc.5-ab785fc"
   }
 }
