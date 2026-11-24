@@ -13,7 +13,7 @@ import {
   parseFrom,
   parseSender,
   readDmarc,
-} from "../src/decide.ts";
+} from "../src/durable/screener/decide.ts";
 
 vi.setConfig({ testTimeout: 10_000 });
 

@@ -304,7 +304,7 @@ describe("review cards", () => {
       },
     });
 
-    await worker.email(message, testEnv);
+    await worker.email(message, testEnv, createExecutionContext());
 
     expect(queued).toHaveLength(1);
     expect(cardText(cardOf(asPost(queued[0])))).toContain("**Subject** `Hello`");

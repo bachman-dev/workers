@@ -1,8 +1,8 @@
 // Decides what happens to a message from its headers and the sender rules, without touching any binding.
 import { getDomain } from "tldts";
 
+import type { Decision, Dmarc, RuleKind, Sender, SenderRule } from "../../types/screener.ts";
 import { decodeHeaderText } from "./mime.ts";
-import type { Decision, Dmarc, RuleKind, Sender, SenderRule } from "./types/screener.ts";
 
 /** Where the scanner is while walking structured header text. */
 interface ScanState {
@@ -403,4 +403,4 @@ export function decide(sender: Sender | null, rules: readonly SenderRule[]): Dec
 }
 
 export { CLOUDFLARE_AUTHSERV_ID, FREE_MAIL_DOMAINS, RULE_KINDS };
-export type * from "./types/screener.ts";
+export type * from "../../types/screener.ts";

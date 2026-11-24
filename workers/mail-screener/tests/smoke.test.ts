@@ -1,8 +1,8 @@
 import { runInDurableObject } from "cloudflare:test";
 import { describe, expect, it, vi } from "vitest";
 
+import Screener from "../src/durable/screener.ts";
 import worker from "../src/index.ts";
-import Screener from "../src/screener.ts";
 import { screenerStub } from "./env.ts";
 
 vi.setConfig({ testTimeout: 10_000 });

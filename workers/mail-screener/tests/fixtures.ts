@@ -1,4 +1,4 @@
-import { orgDomain } from "../src/decide.ts";
+import { orgDomain } from "../src/durable/screener/decide.ts";
 import type { Sender } from "../src/types/screener.ts";
 
 /**

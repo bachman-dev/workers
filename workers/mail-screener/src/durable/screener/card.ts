@@ -11,10 +11,10 @@ import {
   SeparatorSpacingSize,
 } from "@bachman-dev/workers-shared/discord";
 
+import type { Env } from "../../types/cloudflare.ts";
+import type { Dmarc, Review, ReviewAction, ReviewDecision, ReviewStatus } from "../../types/screener.ts";
 import { isFreeMail, orgDomain } from "./decide.ts";
 import { truncate } from "./mime.ts";
-import type { Env } from "./types/cloudflare.ts";
-import type { Dmarc, Review, ReviewAction, ReviewDecision, ReviewStatus } from "./types/screener.ts";
 
 /** Discord's longest button label. */
 const MAX_LABEL_LENGTH = 80;

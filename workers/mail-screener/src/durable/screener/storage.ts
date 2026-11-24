@@ -1,4 +1,3 @@
-import { hostSuffixes } from "./decide.ts";
 import type {
   AddedVia,
   Dmarc,
@@ -10,7 +9,8 @@ import type {
   Sender,
   SenderRule,
   StoredRule,
-} from "./types/screener.ts";
+} from "../../types/screener.ts";
+import { hostSuffixes } from "./decide.ts";
 
 // oxlint-disable-next-line typescript/consistent-type-definitions -- SqlStorage.exec needs an index-signature-compatible type
 type SenderRow = {

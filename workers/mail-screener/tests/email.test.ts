@@ -1,8 +1,8 @@
-import { runInDurableObject } from "cloudflare:test";
+import { createExecutionContext, runInDurableObject } from "cloudflare:test";
 import { describe, expect, it, vi } from "vitest";
 
+import Screener from "../src/durable/screener.ts";
 import worker from "../src/index.ts";
-import Screener from "../src/screener.ts";
 import type { Env } from "../src/types/cloudflare.ts";
 import { screenerStub, testEnv } from "./env.ts";
 import FakeEmailMessage from "./message.ts";
@@ -21,7 +21,7 @@ const FAIL = "mx.cloudflare.net; dkim=fail header.d=example.com; dmarc=fail head
  * @returns {Promise<void>} Resolves once the handler is done.
  */
 async function receive(message: FakeEmailMessage, env: Env = testEnv): Promise<void> {
-  await worker.email(message, env);
+  await worker.email(message, env, createExecutionContext());
 }
 
 /**

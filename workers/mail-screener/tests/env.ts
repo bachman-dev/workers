@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 
+import { SCREENED_DOMAIN } from "../src/durable/screener/constants.ts";
 import type { Env } from "../src/types/cloudflare.ts";
 
 /**
@@ -14,5 +15,5 @@ export const testEnv: Env = env;
  * @returns {ReturnType<Env["SCREENER"]["get"]>} Its stub.
  */
 export function screenerStub(): ReturnType<Env["SCREENER"]["get"]> {
-  return testEnv.SCREENER.get(testEnv.SCREENER.idFromName("bachman.dev"));
+  return testEnv.SCREENER.getByName(SCREENED_DOMAIN);
 }

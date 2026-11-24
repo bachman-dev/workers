@@ -2,11 +2,7 @@ import type { APIContainerComponent } from "@bachman-dev/workers-shared/discord"
 import { log } from "@bachman-dev/workers-shared/util";
 import { DurableObject } from "cloudflare:workers";
 
-import { buildCard, cardEdit, cardPost } from "./card.ts";
-import { decide, isFreeMail, normalizePattern, orgDomain } from "./decide.ts";
-import { truncate } from "./mime.ts";
-import ScreenerStorage from "./storage.ts";
-import type { Env } from "./types/cloudflare.ts";
+import type { Env } from "../types/cloudflare.ts";
 import type {
   Decision,
   NewRule,
@@ -18,23 +14,25 @@ import type {
   RuleList,
   Sender,
   StoredRule,
-} from "./types/screener.ts";
-import ulid from "./ulid.ts";
+} from "../types/screener.ts";
+import { buildCard, cardEdit, cardPost } from "./screener/card.ts";
+import {
+  DAY_MS,
+  EXPIRY_BATCH_SIZE,
+  MAX_SUBJECT_LENGTH,
+  REVIEW_EXPIRY_DAYS,
+  REVIEW_EXPIRY_MS,
+} from "./screener/constants.ts";
+import { decide, isFreeMail, normalizePattern, orgDomain } from "./screener/decide.ts";
+import { truncate } from "./screener/mime.ts";
+import ScreenerStorage from "./screener/storage.ts";
+import ulid from "./screener/ulid.ts";
 
 /** What a review action does: the rule it adds, if any, and the status it leaves the review in. */
 interface ActionEffect {
   rule: { kind: RuleKind; list: RuleList } | null;
   status: Exclude<ReviewStatus, "open">;
 }
-
-/** The longest subject a review keeps. */
-const MAX_SUBJECT_LENGTH = 200;
-const DAY_MS = 86_400_000;
-/** How many days a review stays open without a decision before it's dismissed. */
-const REVIEW_EXPIRY_DAYS = 14;
-const REVIEW_EXPIRY_MS = REVIEW_EXPIRY_DAYS * DAY_MS;
-/** How many closed cards go in one queue batch; Discord's queue takes 100 messages and 256 KB a batch. */
-const EXPIRY_BATCH_SIZE = 50;
 
 const ACTION_EFFECTS: Readonly<Record<ReviewAction, ActionEffect>> = {
   allow_sender: { rule: { kind: "address", list: "allow" }, status: "allowed" },
