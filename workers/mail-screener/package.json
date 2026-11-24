@@ -11,7 +11,8 @@
     "types": "wrangler types"
   },
   "dependencies": {
-    "@bachman-dev/workers-shared": "workspace:*"
+    "@bachman-dev/workers-shared": "workspace:*",
+    "tldts": "7.5.5"
   },
   "devDependencies": {
     "@cloudflare/vitest-plugin": "1.8.3",
