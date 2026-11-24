@@ -31,5 +31,6 @@ export default defineConfig({
       { find: "discord-api-types/v10", replacement: requireFromShared.resolve("discord-api-types/v10") },
     ],
   },
-  test: { setupFiles: ["./tests/setup.ts"] },
+  // Spies on the Screener are put back after each test
+  test: { restoreMocks: true, setupFiles: ["./tests/setup.ts"] },
 });
