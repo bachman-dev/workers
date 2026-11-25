@@ -90,9 +90,10 @@ export interface DiscordSyncedCommand {
 }
 
 /**
- * Every command a worker has for one application, global and guild. The discord worker bulk overwrites the global scope
- * and each guild its `command_guilds` table maps a guild command to, skipping any scope whose commands are unchanged
- * since the last sync, and clears scopes that no longer get any.
+ * Every command a worker has for one application, global and guild; an empty list means it has none. The discord worker
+ * bulk overwrites the global scope and each guild its `command_guilds` table names for the worker, skipping any scope
+ * whose commands are unchanged since the last sync. A scope that gets no commands is cleared, including global commands
+ * or guild commands registered before the worker first synced.
  */
 export interface DiscordSyncCommandsQueueBody {
   op: "sync-commands";

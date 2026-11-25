@@ -27,6 +27,12 @@ interface ScopePlan {
   hash: string;
   /** The hash stored for this scope by the last sync, if there was one. */
   storedHash: string | undefined;
+  /**
+   * Whether the scope keeps its `command_syncs` row once synced, even with no commands: true for the global scope and
+   * each guild in `command_guilds`, which every sync plans, so an empty scope's stored hash stops the next sync from
+   * clearing it again. False for a guild that's only cleared because it lost its last mapping.
+   */
+  tracked: boolean;
 }
 
 /** How each scope fared, for the log. */
@@ -80,15 +86,16 @@ function isMissingAccessError(error: unknown): boolean {
 }
 
 /**
- * Works out what each scope should hold: the global scope gets the worker's global commands, and each guild that
- * `command_guilds` maps one of its guild commands to gets those. Scopes synced before that get nothing now are cleared;
- * scopes never synced that get nothing are left alone, so a first sync never clears commands it didn't put there.
+ * Works out what each scope should hold. A sync body lists every command the worker has, so the global scope always
+ * gets exactly its global commands, even none, which clears global commands left over from before the worker synced.
+ * Each guild in `command_guilds` for the worker gets the guild commands mapped to it there, even none, for the same
+ * reason. A guild synced before that has no mappings now is cleared.
  *
  * @param {DiscordSyncCommandsQueueBody} body - The queued sync.
  * @param {Map<string, string>} storedHashes - The hash stored for each scope this application was synced to before.
  * @param {Drizzle} drizzle - The database.
- * @returns {Promise<ScopePlan[]>} The global scope first if it's in the plan, then each guild in ID order, each with
- *   the hash of its commands.
+ * @returns {Promise<ScopePlan[]>} The global scope first, then each guild in ID order, each with the hash of its
+ *   commands.
  */
 async function planScopes(
   body: DiscordSyncCommandsQueueBody,
@@ -105,10 +112,11 @@ async function planScopes(
   const mappedNames = new Set<string>();
   const rows = await drizzle.query.commandGuilds.findMany({ where: { worker: { eq: body.worker } } });
   for (const row of rows) {
+    // Every guild mapped here is one this worker manages, even if none of its mappings name a guild command
+    const names = namesByGuild.get(row.guildId) ?? new Set<string>();
+    namesByGuild.set(row.guildId, names);
     if (guildNames.has(row.command)) {
-      const names = namesByGuild.get(row.guildId) ?? new Set<string>();
       names.add(row.command);
-      namesByGuild.set(row.guildId, names);
       mappedNames.add(row.command);
     } else if (globalNames.has(row.command)) {
       log("warn", `command_guilds maps ${body.worker}'s /${row.command} to guild ${row.guildId}, but it's global`);
@@ -125,10 +133,8 @@ async function planScopes(
     }
   }
 
-  const plans = new Map<string, RESTPostAPIApplicationCommandsJSONBody[]>();
-  if (globalCommands.length > 0) {
-    plans.set(GLOBAL_SCOPE, sortByName(globalCommands));
-  }
+  // The global scope and the guilds in command_guilds are tracked; the rest come only from storedHashes, to be cleared
+  const plans = new Map<string, RESTPostAPIApplicationCommandsJSONBody[]>([[GLOBAL_SCOPE, sortByName(globalCommands)]]);
   for (const [guildId, names] of namesByGuild) {
     plans.set(guildId, sortByName(guildCommands.filter((command) => names.has(command.name))));
   }
@@ -140,7 +146,13 @@ async function planScopes(
 
   const planned = await Promise.all(
     [...plans.entries()].map(async ([scope, commands]): Promise<ScopePlan> => {
-      return { scope, commands, hash: await hashCommands(commands), storedHash: storedHashes.get(scope) };
+      return {
+        scope,
+        commands,
+        hash: await hashCommands(commands),
+        storedHash: storedHashes.get(scope),
+        tracked: scope === GLOBAL_SCOPE || namesByGuild.has(scope),
+      };
     }),
   );
   return planned.toSorted((first, second) => {
@@ -155,8 +167,8 @@ async function planScopes(
 }
 
 /**
- * Bulk overwrites one scope's commands on Discord, then records the sync: an upserted row for a scope that has
- * commands, or no row for a scope that was cleared.
+ * Bulk overwrites one scope's commands on Discord, then records the sync: an upserted row for a tracked scope, even an
+ * empty one, or no row for an untracked scope, which is always being cleared.
  *
  * @param {REST} rest - The REST client, authenticated as the bot.
  * @param {DiscordSyncCommandsQueueBody} body - The queued sync.
@@ -179,9 +191,7 @@ async function overwriteScope(
   await rest.put(route, { body: plan.commands });
 
   const isScope = and(eq(commandSyncs.applicationId, applicationId), eq(commandSyncs.scope, plan.scope));
-  if (plan.commands.length === 0) {
-    await drizzle.delete(commandSyncs).where(isScope);
-  } else {
+  if (plan.tracked) {
     const syncedAt = Date.now();
     await drizzle
       .insert(commandSyncs)
@@ -190,6 +200,8 @@ async function overwriteScope(
         target: [commandSyncs.applicationId, commandSyncs.scope],
         set: { worker, hash, syncedAt },
       });
+  } else {
+    await drizzle.delete(commandSyncs).where(isScope);
   }
 }
 
@@ -232,7 +244,8 @@ async function syncCommandsOrThrow(
   const storedHashes = new Map(synced.map((row) => [row.scope, row.hash]));
   const summary: SyncSummary = { overwritten: [], cleared: [], unchanged: [], missingAccess: [] };
   for (const plan of await planScopes(body, storedHashes, drizzle)) {
-    if (plan.hash === plan.storedHash) {
+    // An untracked scope's row is deleted even if Discord already has none of its commands
+    if (plan.tracked && plan.hash === plan.storedHash) {
       summary.unchanged.push(plan.scope);
     } else {
       try {
