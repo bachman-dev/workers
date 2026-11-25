@@ -24,6 +24,12 @@
         "default": "./dist/http/index.mjs"
       }
     },
+    "./screener": {
+      "import": {
+        "types": "./dist/screener/index.d.mts",
+        "default": "./dist/screener/index.mjs"
+      }
+    },
     "./util": {
       "import": {
         "types": "./dist/util/index.d.mts",

@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "build": "wrangler deploy --dry-run --outdir dist",
-    "check": "tsc --noEmit",
+    "check": "tsc --noEmit && tsc --noEmit -p tests",
     "deploy": "pnpm types && pnpm check && wrangler deploy",
+    "test": "vitest run",
     "types": "wrangler types"
   },
   "dependencies": {

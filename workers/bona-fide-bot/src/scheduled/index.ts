@@ -1,14 +1,18 @@
 import { log } from "@bachman-dev/workers-shared/util";
 
+import { queueCommandSync } from "../commands/sync.ts";
 import { getGatewayBot, shardName } from "../durable/gateway/api.ts";
 import type { EnsureResult } from "../durable/gateway/types.ts";
 import type { Env } from "../types/cloudflare.ts";
 
-/*
+/**
  * Keeps one Gateway Durable Object running per shard Discord recommends. Each shard's own alarm keeps it connected;
  * this starts shards after a deploy, restarts any that stopped, and follows changes to the recommended shard count.
+ *
+ * @param {Env} env - The worker's bindings.
+ * @returns {Promise<void>} Resolves once every shard is ensured and any extra ones stopped.
  */
-const scheduled: ExportedHandlerScheduledHandler<Env> = async (_controller, env) => {
+async function reconcileShards(env: Env): Promise<void> {
   const gateway = await getGatewayBot(env.DISCORD_APP_SECRET);
   const shardCount = gateway.shards;
   const maxConcurrency = gateway.session_start_limit.max_concurrency;
@@ -39,6 +43,27 @@ const scheduled: ExportedHandlerScheduledHandler<Env> = async (_controller, env)
     sessionStartsRemaining: gateway.session_start_limit.remaining,
     shardCount,
   });
+}
+
+/*
+ * Reconciles the Gateway shards, then queues the command sync. Each runs in its own try/catch, so a failed reconcile
+ * never skips the sync and a failed sync never hides a failed reconcile.
+ */
+const scheduled: ExportedHandlerScheduledHandler<Env> = async (_controller, env) => {
+  let reconcileFailure: { error: unknown } | null = null;
+  try {
+    await reconcileShards(env);
+  } catch (error) {
+    reconcileFailure = { error };
+  }
+  try {
+    await queueCommandSync(env);
+  } catch (error) {
+    log("error", "Couldn't queue the command sync", error);
+  }
+  if (reconcileFailure !== null) {
+    throw reconcileFailure.error;
+  }
 };
 
 export default scheduled;

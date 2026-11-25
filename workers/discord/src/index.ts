@@ -2,6 +2,7 @@ import type { MappedExportedHandler } from "@bachman-dev/workers-shared/cloudfla
 import {
   type APIMessage,
   type DiscordMessageQueueBody,
+  type DiscordSyncCommandsQueueBody,
   type MessageBodyByFormat,
   type MessageFormat,
   splitComponentsToMessages,
@@ -9,6 +10,7 @@ import {
 
 import applyChange from "./changes.ts";
 import { type BatchContext, DiscordClients } from "./clients.ts";
+import syncCommands from "./commands.ts";
 import { getDrizzle } from "./db/index.ts";
 import { messageRefs } from "./db/schema.ts";
 import type { QueueBodyMap, QueueName } from "./types/cloudflare.ts";
@@ -36,6 +38,16 @@ function isPost(message: Message<DiscordMessageQueueBody>): message is Message<D
  */
 function isChange(message: Message<DiscordMessageQueueBody>): message is Message<DiscordChangeQueueBody> {
   return message.body.op === "edit" || message.body.op === "delete";
+}
+
+/**
+ * Tells command syncs apart from posts, edits and deletes.
+ *
+ * @param {Message<DiscordMessageQueueBody>} message - A message from the batch.
+ * @returns {boolean} Whether the message syncs a worker's commands.
+ */
+function isSyncCommands(message: Message<DiscordMessageQueueBody>): message is Message<DiscordSyncCommandsQueueBody> {
+  return message.body.op === "sync-commands";
 }
 
 /** Queued components bound for the same place with the same allowed mentions, which can share a message. */
@@ -281,11 +293,14 @@ export default {
 
     const posts: Message<DiscordPostQueueBody>[] = [];
     const changes: Message<DiscordChangeQueueBody>[] = [];
+    const syncs: Message<DiscordSyncCommandsQueueBody>[] = [];
     for (const message of batch.messages) {
       if (isPost(message)) {
         posts.push(message);
       } else if (isChange(message)) {
         changes.push(message);
+      } else if (isSyncCommands(message)) {
+        syncs.push(message);
       } else {
         // Acked since it's sent to the dead letter queue instead of being retried
         context.rejectedMessages.push({ error: "DISCORD_QUEUE_OP_UNKNOWN", message });
@@ -296,7 +311,7 @@ export default {
     // Rejected messages are already acked, so dead-letter them even if a later send fails and the batch is retried
     try {
       // Posts go first, so a post and an edit to it in the same batch land in order. A failed post retries the posts
-      // that weren't acked, but only once the batch's edits and deletes have had their turn.
+      // that weren't acked, but only once the batch's edits, deletes and command syncs have had their turn.
       let postsFailed = false;
       let postError: unknown = undefined;
       try {
@@ -309,6 +324,8 @@ export default {
         // oxlint-disable-next-line no-await-in-loop -- Must be in order
         await applyChange(message, context);
       }
+      // Command syncs go last, and each retries on its own, so they never hold up a batch's messages
+      await syncCommands(syncs, context);
       if (postsFailed) {
         throw postError;
       }

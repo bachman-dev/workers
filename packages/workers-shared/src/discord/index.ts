@@ -2,6 +2,7 @@ export {
   ActivityType,
   APIVersion,
   ApplicationCommandOptionType,
+  ApplicationCommandType,
   ApplicationIntegrationType,
   ButtonStyle,
   ComponentType,

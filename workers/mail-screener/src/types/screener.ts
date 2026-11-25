@@ -1,8 +1,15 @@
-/** What a rule matches: one address, one exact host, or a parent domain and every subdomain under it. */
-export type RuleKind = "address" | "domain" | "org";
+import type { ReviewAction, SenderRule } from "@bachman-dev/workers-shared/screener";
 
-/** Whether a rule lets mail through or rejects it. */
-export type RuleList = "allow" | "deny";
+// The rule and review-action types are shared with the workers that call ScreenerService
+export type {
+  AddedVia,
+  NewRule,
+  ReviewAction,
+  RuleKind,
+  RuleList,
+  SenderRule,
+  StoredRule,
+} from "@bachman-dev/workers-shared/screener";
 
 /** The DMARC result Cloudflare's own Authentication-Results header gives, or `none` without a trustworthy one. */
 export type Dmarc = "pass" | "fail" | "none";
@@ -12,13 +19,6 @@ export type Dmarc = "pass" | "fail" | "none";
  * passed), or forward it as `unknown` for review (everything else).
  */
 export type Verdict = "reject" | "known" | "unknown";
-
-/** A sender rule as matched, with its pattern already normalized. */
-export interface SenderRule {
-  kind: RuleKind;
-  pattern: string;
-  list: RuleList;
-}
 
 /** The sender of a message, from its header From, plus the DMARC result Cloudflare recorded for it. */
 export interface Sender {
@@ -42,35 +42,8 @@ export interface Decision {
   rule: SenderRule | null;
 }
 
-/** Where a sender rule came from. */
-export type AddedVia = "discord" | "seed" | "cli";
-
-/** A sender rule as stored in the Screener. */
-export interface StoredRule extends SenderRule {
-  note: string | null;
-  /** Unix time in milliseconds. */
-  addedAt: number;
-  addedVia: AddedVia;
-}
-
-/** A sender rule to add; its pattern is normalized before it's stored. */
-export interface NewRule extends SenderRule {
-  note?: string | null;
-  addedVia: AddedVia;
-}
-
 /** Where a review stands. */
 export type ReviewStatus = "open" | "allowed" | "blocked" | "dismissed";
-
-/** What a review card's buttons can do. */
-export type ReviewAction =
-  | "allow_sender"
-  | "allow_domain"
-  | "allow_org"
-  | "block_sender"
-  | "block_domain"
-  | "block_org"
-  | "dismiss";
 
 /** How a review was closed: one of its buttons, or `expire` when nobody decided within the expiry window. */
 export type ReviewDecision = ReviewAction | "expire";

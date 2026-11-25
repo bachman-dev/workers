@@ -16,11 +16,13 @@ type DiscordResponder = (request: DiscordRequest) => Response | undefined;
 const API_PREFIX = "/api/v10";
 const HTTP_NO_CONTENT = 204;
 const HTTP_BAD_REQUEST = 400;
+const HTTP_FORBIDDEN = 403;
 const HTTP_NOT_FOUND = 404;
 const FIRST_MESSAGE_ID = 1000;
 const MESSAGE_ROUTE =
   /^\/(?:channels\/(?<channelId>\d+)|webhooks\/(?<webhookId>\d+)\/[^\/]+)\/messages(?:\/(?<messageId>\d+))?$/v;
 const WEBHOOK_ROUTE = /^\/webhooks\/(?<webhookId>\d+)\/[^\/]+$/v;
+const COMMANDS_ROUTE = /^\/applications\/\d+(?:\/guilds\/\d+)?\/commands$/v;
 
 /** Every request sent to Discord since the last {@link resetDiscord}, in order. */
 const requests: DiscordRequest[] = [];
@@ -66,12 +68,16 @@ function messageResponse(channelId: string, messageId: string, body: unknown): R
 }
 
 /**
- * The default answers: posts and edits succeed and return a message, deletes return no content.
+ * The default answers: posts and edits succeed and return a message, deletes return no content, and bulk overwrites of
+ * commands return the commands.
  *
  * @param {DiscordRequest} request - The request.
  * @returns {Response} Discord's answer.
  */
 function defaultResponse(request: DiscordRequest): Response {
+  if (request.method === "PUT" && COMMANDS_ROUTE.test(request.path)) {
+    return json(request.body);
+  }
   const webhook = WEBHOOK_ROUTE.exec(request.path);
   if (request.method === "POST" && webhook !== null) {
     const channelId = request.query.get("thread_id") ?? "300";
@@ -168,4 +174,13 @@ function invalidFormBody(): Response {
   return json({ message: "Invalid Form Body", code: 50_035 }, HTTP_BAD_REQUEST);
 }
 
-export { invalidFormBody, mockDiscord, requests, resetDiscord, respondTo, unknownMessage };
+/**
+ * Builds the error Discord returns when the bot can't reach a resource, e.g. a guild it isn't in.
+ *
+ * @returns {Response} A 403 with error code 50001.
+ */
+function missingAccess(): Response {
+  return json({ message: "Missing Access", code: 50_001 }, HTTP_FORBIDDEN);
+}
+
+export { invalidFormBody, missingAccess, mockDiscord, requests, resetDiscord, respondTo, unknownMessage };

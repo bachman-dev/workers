@@ -1,12 +1,14 @@
 import type {
   APIAllowedMentions,
   APIMessageTopLevelComponent,
+  RESTPostAPIApplicationCommandsJSONBody,
   RESTPostAPIChannelMessageJSONBody,
   RESTPostAPIWebhookWithTokenJSONBody,
   RESTPostAPIWebhookWithTokenQuery,
   Snowflake,
 } from "discord-api-types/v10";
 
+import type { DiscordCommandScope } from "./interactions.ts";
 import type { ComponentLimitError } from "./util.ts";
 
 /** Request body type for each way of sending a message. */
@@ -81,8 +83,32 @@ export interface DiscordDeleteMessageQueueBody {
   version: number;
 }
 
+/** One command a worker has, and where it's registered. */
+export interface DiscordSyncedCommand {
+  scope: DiscordCommandScope;
+  data: RESTPostAPIApplicationCommandsJSONBody;
+}
+
+/**
+ * Every command a worker has for one application, global and guild. The discord worker bulk overwrites the global scope
+ * and each guild its `command_guilds` table maps a guild command to, skipping any scope whose commands are unchanged
+ * since the last sync, and clears scopes that no longer get any.
+ */
+export interface DiscordSyncCommandsQueueBody {
+  op: "sync-commands";
+  applicationId: Snowflake;
+  /** The worker that owns this application's commands, e.g. `bona-fide-bot`; one worker owns each application's. */
+  worker: string;
+  commands: DiscordSyncedCommand[];
+  /** Never set; declared so code that reads `ref` or `version` off any queued body still type-checks. */
+  ref?: never;
+  /** Never set; declared so code that reads `ref` or `version` off any queued body still type-checks. */
+  version?: never;
+}
+
 export type DiscordMessageQueueBody =
   | DiscordCreateMessageQueueBody
   | DiscordExecuteWebhookQueueBody
   | DiscordEditMessageQueueBody
-  | DiscordDeleteMessageQueueBody;
+  | DiscordDeleteMessageQueueBody
+  | DiscordSyncCommandsQueueBody;

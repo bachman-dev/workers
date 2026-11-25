@@ -9,7 +9,9 @@
     "enabled": true,
   },
   "secrets": {
-    "required": ["BASE_PATH", "DISCORD_APP_ID", "DISCORD_APP_SECRET", "DISCORD_PUBLIC_KEY"],
+    // BASE_PATH: the interactions route. DISCORD_APP_ID, DISCORD_APP_SECRET, DISCORD_PUBLIC_KEY: the bot's application.
+    // DISCORD_OWNER_ID: the Discord user who may press review buttons and run /screen.
+    "required": ["BASE_PATH", "DISCORD_APP_ID", "DISCORD_APP_SECRET", "DISCORD_OWNER_ID", "DISCORD_PUBLIC_KEY"],
   },
   "queues": {
     "producers": [
@@ -31,6 +33,15 @@
       },
     ],
   },
+  // Answers review buttons and edits the sender lists. Previews don't inherit top-level service bindings, and this one is
+  // left out of `previews` on purpose, so a preview can never change the live Screener's rules.
+  "services": [
+    {
+      "binding": "SCREENER",
+      "service": "mail-screener",
+      "entrypoint": "ScreenerService",
+    },
+  ],
   "exports": {
     "DiscordGateway": {
       "type": "durable-object",

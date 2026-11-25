@@ -1,4 +1,4 @@
-import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 export const apps = sqliteTable("apps", {
   id: text().primaryKey(),
@@ -32,3 +32,35 @@ export const messageRefs = sqliteTable("message_refs", {
   /** Unix time in milliseconds; null until the message is deleted. */
   deletedAt: integer("deleted_at"),
 });
+
+/** Which guilds each guild command is registered in; one row per command and guild. */
+export const commandGuilds = sqliteTable(
+  "command_guilds",
+  {
+    /** The worker whose command it is, as named in its sync-commands bodies. */
+    worker: text("worker").notNull(),
+    /** The command's name. */
+    command: text("command").notNull(),
+    guildId: text("guild_id").notNull(),
+    /** Unix time in milliseconds. */
+    createdAt: integer("created_at").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.worker, table.command, table.guildId] })],
+);
+
+/** What was last sent to Discord for each scope of an application's commands, so unchanged scopes are skipped. */
+export const commandSyncs = sqliteTable(
+  "command_syncs",
+  {
+    applicationId: text("application_id").notNull(),
+    /** `global`, or the ID of the guild the commands were sent to. */
+    scope: text("scope").notNull(),
+    /** The worker that owns this application's commands. */
+    worker: text("worker").notNull(),
+    /** The SHA-256 hash, in hex, of the exact command array last sent for this scope. */
+    hash: text("hash").notNull(),
+    /** Unix time in milliseconds. */
+    syncedAt: integer("synced_at").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.applicationId, table.scope] })],
+);
