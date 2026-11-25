@@ -1,4 +1,5 @@
 import type { APIContainerComponent } from "@bachman-dev/workers-shared/discord";
+import type { ScreenerServiceRpc } from "@bachman-dev/workers-shared/screener";
 import { WorkerEntrypoint } from "cloudflare:workers";
 
 import { SCREENED_DOMAIN } from "../durable/screener/constants.ts";
@@ -9,7 +10,7 @@ import type { ReviewAction } from "../types/screener.ts";
  * What other workers call over a service binding. bona-fide-bot binds it to answer review buttons, with `{ "binding":
  * "SCREENER", "service": "mail-screener", "entrypoint": "ScreenerService" }`.
  */
-export default class ScreenerService extends WorkerEntrypoint<Env> {
+export default class ScreenerService extends WorkerEntrypoint<Env> implements Pick<ScreenerServiceRpc, "decide"> {
   /**
    * Decides a review, as its card's buttons do.
    *
