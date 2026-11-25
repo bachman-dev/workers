@@ -73,8 +73,15 @@ export type DiscordContextCommandHandler<Env = unknown> = (
   env: Env,
 ) => MaybePromise<DiscordCommandResponse>;
 
+/**
+ * Where a command is registered: `global` for every server the app is in and its DMs, or `guild` for only the servers
+ * the discord worker's `command_guilds` table maps it to. A guild command names no guild itself.
+ */
+export type DiscordCommandScope = "global" | "guild";
+
 export interface DiscordChatCommand<Env = unknown> {
   type: "chat";
+  scope: DiscordCommandScope;
   data: RESTPostAPIChatInputApplicationCommandsJSONBody;
   handleAutocomplete: DiscordAutocompleteHandler<Env>;
   handleCommand: DiscordChatCommandRunner<Env>;
@@ -84,6 +91,7 @@ export interface DiscordChatCommand<Env = unknown> {
 
 export interface DiscordContextCommand<Env = unknown> {
   type: "context";
+  scope: DiscordCommandScope;
   data: RESTPostAPIContextMenuApplicationCommandsJSONBody;
   handleCommand: DiscordContextCommandHandler<Env>;
   isEphemeral: boolean;
