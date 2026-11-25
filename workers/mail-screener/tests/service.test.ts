@@ -120,9 +120,11 @@ describe("ScreenerService.addSender()", () => {
   it("still allows a free-mail address", async () => {
     expect.hasAssertions();
 
-    await expect(service().addSender(newRule({ kind: "address", pattern: "jane@gmail.com" }))).resolves.toMatchObject({
+    await expect(
+      service().addSender(newRule({ kind: "address", pattern: "someone@gmail.com" })),
+    ).resolves.toMatchObject({
       ok: true,
-      rule: { pattern: "jane@gmail.com" },
+      rule: { pattern: "someone@gmail.com" },
     });
   });
 
