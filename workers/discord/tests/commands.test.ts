@@ -215,28 +215,72 @@ describe("sync-commands", () => {
     await expect(syncRows()).resolves.toMatchObject([{ scope: GUILD_B }, { scope: "global" }]);
   });
 
-  it("clears the global scope once the worker has no global commands", async () => {
+  it("clears the global scope once the worker has no global commands, and only once", async () => {
     expect.hasAssertions();
     await firstSync();
+    const body = sync([guild("screen"), guild("admin")]);
 
-    await runBatch([sync([guild("screen"), guild("admin")])]);
+    await runBatch([body]);
 
     expect(overwrites()).toStrictEqual([{ path: `/applications/${APPLICATION_ID}/commands`, body: [] }]);
-    await expect(syncRows()).resolves.toMatchObject([{ scope: GUILD_A }, { scope: GUILD_B }]);
+    await expect(syncRows()).resolves.toMatchObject([
+      { scope: GUILD_A },
+      { scope: GUILD_B },
+      { scope: "global", hash: await hashCommands([]) },
+    ]);
+
+    requests.length = 0;
+    await runBatch([body]);
+
+    expect(requests).toStrictEqual([]);
   });
 
-  it("leaves scopes it never synced alone when there's nothing to send", async () => {
+  it("clears global commands it never synced when the worker has none, and only once", async () => {
     expect.hasAssertions();
-
     // /screen isn't mapped to any guild, and there are no global commands
-    const { ids, result } = await runBatch([sync([guild("screen")])]);
+    const body = sync([guild("screen")]);
+
+    const { ids, result } = await runBatch([body]);
 
     expect(result.explicitAcks).toStrictEqual(ids);
+    expect(overwrites()).toStrictEqual([{ path: `/applications/${APPLICATION_ID}/commands`, body: [] }]);
+    await expect(syncRows()).resolves.toStrictEqual([
+      { applicationId: APPLICATION_ID, scope: "global", worker: WORKER, hash: await hashCommands([]) },
+    ]);
+
+    requests.length = 0;
+    await runBatch([body]);
+
     expect(requests).toStrictEqual([]);
-    await expect(syncRows()).resolves.toStrictEqual([]);
   });
 
-  it("ignores mappings to global commands and to commands the worker doesn't have", async () => {
+  it("clears every scope when the worker sends no commands at all, and only once", async () => {
+    expect.hasAssertions();
+    await firstSync();
+    const body = sync([]);
+
+    const { ids, result } = await runBatch([body]);
+
+    expect(result.explicitAcks).toStrictEqual(ids);
+    expect(overwrites()).toStrictEqual([
+      { path: `/applications/${APPLICATION_ID}/commands`, body: [] },
+      { path: `/applications/${APPLICATION_ID}/guilds/${GUILD_A}/commands`, body: [] },
+      { path: `/applications/${APPLICATION_ID}/guilds/${GUILD_B}/commands`, body: [] },
+    ]);
+    const emptyHash = await hashCommands([]);
+    await expect(syncRows()).resolves.toMatchObject([
+      { scope: GUILD_A, hash: emptyHash },
+      { scope: GUILD_B, hash: emptyHash },
+      { scope: "global", hash: emptyHash },
+    ]);
+
+    requests.length = 0;
+    await runBatch([body]);
+
+    expect(requests).toStrictEqual([]);
+  });
+
+  it("clears a guild whose mappings name only global commands or commands the worker doesn't have", async () => {
     expect.hasAssertions();
     await mapCommand("ping", GUILD_A);
     await mapCommand("gone", GUILD_A);
@@ -248,7 +292,43 @@ describe("sync-commands", () => {
 
     expect(overwrites()).toStrictEqual([
       { path: `/applications/${APPLICATION_ID}/commands`, body: [chatCommand("ping")] },
+      { path: `/applications/${APPLICATION_ID}/guilds/${GUILD_A}/commands`, body: [] },
       { path: `/applications/${APPLICATION_ID}/guilds/${GUILD_B}/commands`, body: [chatCommand("screen")] },
+    ]);
+    await expect(syncRows()).resolves.toMatchObject([
+      { scope: GUILD_A, hash: await hashCommands([]) },
+      { scope: GUILD_B },
+      { scope: "global" },
+    ]);
+  });
+
+  it("deletes an empty guild's row once it loses its last mapping", async () => {
+    expect.hasAssertions();
+    await mapCommand("gone", GUILD_A);
+    const body = sync([]);
+    await runBatch([body]);
+    await unmapCommand("gone", GUILD_A);
+    requests.length = 0;
+
+    await runBatch([body]);
+
+    expect(overwrites()).toStrictEqual([
+      { path: `/applications/${APPLICATION_ID}/guilds/${GUILD_A}/commands`, body: [] },
+    ]);
+    await expect(syncRows()).resolves.toMatchObject([{ scope: "global" }]);
+  });
+
+  it("keeps the application for a worker with no commands", async () => {
+    expect.hasAssertions();
+    await runBatch([sync([])]);
+    requests.length = 0;
+    const deadLetters = vi.spyOn(env.DEAD_LETTER_QUEUE, "sendBatch");
+
+    await runBatch([sync([global("other")], { worker: OTHER_WORKER })]);
+
+    expect(requests).toStrictEqual([]);
+    expect(deadLetters.mock.calls[0]?.[0]).toMatchObject([
+      { body: { error: "DISCORD_COMMANDS_OWNED_BY_ANOTHER_WORKER" }, contentType: "json" },
     ]);
   });
 
