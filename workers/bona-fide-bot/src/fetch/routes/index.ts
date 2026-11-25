@@ -9,6 +9,7 @@ import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 
 import type { Env } from "../../types/cloudflare.ts";
+import handleScreenButton, { SCREEN_BUTTON_PREFIX } from "../interactions/screen-button.ts";
 import verifiedDiscordRequest from "../middleware/discord.ts";
 
 const index = new Hono<{ Bindings: Env }>();
@@ -20,6 +21,11 @@ index.post("/", verifiedDiscordRequest, async (ctx) => {
   switch (interaction.type) {
     case InteractionType.Ping:
       return ctx.json({ type: InteractionResponseType.Pong } satisfies APIInteractionResponsePong);
+    case InteractionType.MessageComponent:
+      if (interaction.data.custom_id.startsWith(SCREEN_BUTTON_PREFIX)) {
+        return ctx.json(await handleScreenButton(interaction, ctx.env));
+      }
+      throw new HTTPException(HTTPStatusCode.NotImplemented);
     default:
       throw new HTTPException(HTTPStatusCode.NotImplemented);
   }
